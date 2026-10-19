@@ -156,10 +156,10 @@ $ dnf list installed | grep -i python</pre>
   <p class="kicker">Ví dụ</p>
   <h2><code>grep</code> — lọc ra dòng chứa chuỗi cần tìm</h2>
   <div class="cols w4">
-    <pre class="file" data-file="test_grep.txt">linux athena
-LINUX athena
-123linux Athena123
-123LINUX Athena
+    <pre class="file" data-file="test_grep.txt">linux cybersys
+LINUX cybersys
+123linux Cybersys123
+123LINUX Cybersys
 linux456 aaa
 LINUX456 123
 
@@ -169,14 +169,14 @@ LINUX456 123
     <div class="stack">
       <pre class="term">
 $ grep 'linux' test_grep.txt
-linux athena
-123linux Athena123
+linux cybersys
+123linux Cybersys123
 linux456 aaa
 $ grep -i 'linux' test_grep.txt | wc -l
 9
-$ grep -n 'athena' test_grep.txt
-1:linux athena
-2:LINUX athena</pre>
+$ grep -n 'cybersys' test_grep.txt
+1:linux cybersys
+2:LINUX cybersys</pre>
       <table class="cheat small">
         <tr><td>-i</td><td>Không phân biệt hoa thường</td><td>-v</td><td>Đảo: dòng KHÔNG chứa</td></tr>
         <tr><td>-n</td><td>Kèm số dòng</td><td>-c</td><td>Đếm số dòng khớp</td></tr>
@@ -206,7 +206,7 @@ $ grep -n 'athena' test_grep.txt
 $ grep -v '^#' /etc/ssh/sshd_config | grep -v '^$'
 $ grep -Ev '^#|^$' /etc/ssh/sshd_config
 ## Nhiều mẫu (HOẶC) cần -E
-$ grep -E 'root|nhanle' /etc/passwd</pre>
+$ grep -E 'root|antm' /etc/passwd</pre>
       <div class="callout legacy"><span class="lbl">Sửa ghi chú gốc</span>Ghi chú dùng <code>[1,3]</code> – dấu phẩy cũng bị coi là 1 ký tự trong tập. Viết đúng: <code>[13]</code>. <code>egrep</code> cũ = <code>grep -E</code>.</div>
     </div>
   </div>
@@ -225,7 +225,7 @@ root
 bin
 daemon
 $ cut -d: -f1,7 /etc/passwd | tail -1
-nhanle:/bin/bash
+antm:/bin/bash
 $ cut -d: -f1 /etc/passwd &gt; /root/listuser.txt
 $ sort -t: -k3 -n /etc/passwd | tail -1   # UID lớn nhất
 $ cut -d: -f7 /etc/passwd | sort | uniq -c
@@ -268,7 +268,7 @@ $ awk -F: '{print $1, $3}' /etc/passwd | head -2
 root 0
 bin 1
 $ awk -F: '$3 &gt;= 1000 {print $1}' /etc/passwd
-nhanle
+antm
 $ df -h | awk '{print $5, $6}'</pre>
       <p class="small muted"><code>-F:</code> = phân cách cột; <code>$1</code> = cột 1; điều kiện đặt trước <code>{ }</code>.</p>
     </div>
@@ -356,12 +356,12 @@ $ md5sum 1trieu.txt ; sha512sum 1trieu.txt</pre>
     </div>
     <pre class="term tight">
 $ grep -E '^[0-9]{3}' test_grep.txt
-123linux Athena123
-123LINUX Athena
+123linux Cybersys123
+123LINUX Cybersys
 $ grep -iE 'linux[0-9]+' test_grep.txt
 linux456 aaa
 LINUX456 123
-$ grep -E '^(root|nhanle):' /etc/passwd
+$ grep -E '^(root|antm):' /etc/passwd
 $ grep -c '[[:digit:]]' test_grep.txt
 7
 $ grep -F 'a.a' test_grep.txt     # "." là dấu chấm thật

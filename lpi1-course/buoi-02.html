@@ -78,7 +78,7 @@ $ cat /etc/shells
   </div>
   <div class="cols">
     <div class="callout warn"><span class="lbl"># = root</span>Siêu quản trị, làm được mọi thứ – kể cả xóa sạch hệ thống. Cẩn thận!</div>
-    <div class="callout"><span class="lbl">$ = user thường</span>Quyền hạn chế. Ubuntu hiển thị dạng <code>nhanle@ubuntu1:~$</code></div>
+    <div class="callout"><span class="lbl">$ = user thường</span>Quyền hạn chế. Ubuntu hiển thị dạng <code>ubuntu@ubuntu1:~$</code></div>
   </div>
 </section>
 
@@ -182,11 +182,11 @@ pwd is /usr/bin/pwd</pre>
 root
 # id
 uid=0(root) gid=0(root) groups=0(root)
-# id nhanle
-uid=1000(nhanle) gid=1000(nhanle) groups=1000(nhanle),10(wheel)
+# id antm
+uid=1000(antm) gid=1000(antm) groups=1000(antm),10(wheel)
 # who
 root     tty1   2026-10-19 08:02
-nhanle   pts/0  2026-10-19 08:10 (192.168.229.1)</pre>
+antm   pts/0  2026-10-19 08:10 (192.168.229.1)</pre>
     <div class="stack small">
       <table class="cheat">
         <tr><td>whoami</td><td>Tên user hiện tại</td></tr>
@@ -208,15 +208,15 @@ nhanle   pts/0  2026-10-19 08:10 (192.168.229.1)</pre>
 ├── etc/
 │   └── ssh/
 ├── home/
-│   ├── nhanle/
+│   ├── antm/
 │   │   └── docs/
 │   └── test/
 ├── root/
 └── var/
     └── log/</pre>
     <div class="stack small">
-      <div class="card"><h3>Tuyệt đối — bắt đầu bằng <code>/</code></h3>Đi từ gốc, đúng ở mọi nơi: <code>/home/nhanle/docs</code></div>
-      <div class="card"><h3>Tương đối — tính từ chỗ đang đứng</h3>Đang ở <code>/home</code> → <code>nhanle/docs</code></div>
+      <div class="card"><h3>Tuyệt đối — bắt đầu bằng <code>/</code></h3>Đi từ gốc, đúng ở mọi nơi: <code>/home/antm/docs</code></div>
+      <div class="card"><h3>Tương đối — tính từ chỗ đang đứng</h3>Đang ở <code>/home</code> → <code>antm/docs</code></div>
       <table>
         <tr><td><code>.</code></td><td>Thư mục hiện tại</td></tr>
         <tr><td><code>..</code></td><td>Thư mục cha (lùi 1 cấp)</td></tr>
@@ -243,8 +243,8 @@ nhanle   pts/0  2026-10-19 08:10 (192.168.229.1)</pre>
 [root@server1 ssh]# cd -
 /var
 [root@server1 var]# cd
-[root@server1 ~]# cd ~nhanle; pwd
-/home/nhanle</pre>
+[root@server1 ~]# cd ~antm; pwd
+/home/antm</pre>
     <div class="stack small">
       <table class="cheat">
         <tr><td>pwd</td><td>In thư mục hiện tại</td></tr>

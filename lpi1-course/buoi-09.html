@@ -58,7 +58,7 @@
   <div class="cols">
     <pre class="term">
 $ ls -l
-drwxr-xr-x. 2 test test123 4096 Dec  8 20:06 athena
+drwxr-xr-x. 2 test test123 4096 Dec  8 20:06 cybersys
 -rw-r--r--. 1 test test456   33 Dec  8 19:48 .bash_logout</pre>
     <div class="callout"><span class="lbl">Kiểm tra theo thứ tự</span>Bạn là chủ? → dùng bộ <b>u</b>. Không phải chủ nhưng thuộc nhóm? → dùng bộ <b>g</b>. Không thì → bộ <b>o</b>. Chỉ áp dụng <b>1</b> bộ, không cộng dồn.</div>
   </div>
@@ -114,15 +114,15 @@ drwxr-xr-x. 2 test test123 4096 Dec  8 20:06 athena
   <div class="cols">
     <pre class="term">
 $ touch 123.txt ; ls -l 123.txt
--rw-r--r--. 1 nhanle nhanle 0 Oct 19 19:38 123.txt
+-rw-r--r--. 1 antm antm 0 Oct 19 19:38 123.txt
 $ chmod 600 123.txt
 $ chmod u+x 123.txt          # thêm x cho chủ
 $ chmod go-w file.txt        # bỏ w của nhóm &amp; other
 $ chmod a+r file.txt         # a = all (u, g, o)
 $ chmod u=rwx,g=rx,o= dir    # gán chính xác
-$ chmod 700 -R athena/       # đệ quy cả bên trong
+$ chmod 700 -R cybersys/       # đệ quy cả bên trong
 $ ls -l 123.txt
--rwx------. 1 nhanle nhanle 0 Oct 19 19:38 123.txt</pre>
+-rwx------. 1 antm antm 0 Oct 19 19:38 123.txt</pre>
     <div class="stack small">
       <div class="center"><span class="anno" style="font-size:28px">chmod <span style="color:var(--amber)">u</span><span style="color:var(--accent)">g</span><span style="color:var(--blue)">o</span>a <span style="color:var(--red)">+ - =</span> rwx  file</span></div>
       <table>

@@ -55,11 +55,11 @@
 $ mkdir ~/test_touch &amp;&amp; cd ~/test_touch
 $ touch 123456.txt
 $ ls -l
--rw-r--r--. 1 nhanle nhanle 0 Oct 19 16:07 123456.txt
+-rw-r--r--. 1 antm antm 0 Oct 19 16:07 123456.txt
 $ touch 123456.txt          # chạm lại: đổi giờ
 $ touch -t 202503141500 123456.txt
 $ ls -l 123456.txt
--rw-r--r--. 1 nhanle nhanle 0 Mar 14  2025 123456.txt
+-rw-r--r--. 1 antm antm 0 Mar 14  2025 123456.txt
 $ echo "xin chao" &gt; hello.txt   # tạo file có nội dung</pre>
     <div class="stack small">
       <ul>
@@ -71,7 +71,7 @@ $ echo "xin chao" &gt; hello.txt   # tạo file có nội dung</pre>
 $ stat 123456.txt
   File: 123456.txt
   Size: 0     Blocks: 0   regular empty file
-Access: (0644/-rw-r--r--)  Uid: (1000/nhanle)
+Access: (0644/-rw-r--r--)  Uid: (1000/antm)
 Access: 2025-03-14 15:00:00 +0700
 Modify: 2025-03-14 15:00:00 +0700
 Change: 2026-10-19 16:18:23 +0700</pre>
@@ -209,10 +209,10 @@ removed 'file3.log'</pre>
 /usr/sbin/useradd
 # find /usr/bin -name "pass*"
 /usr/bin/passwd
-# find /home -user nhanle -name ".bash*"
-/home/nhanle/.bash_logout
-/home/nhanle/.bash_profile
-/home/nhanle/.bashrc
+# find /home -user antm -name ".bash*"
+/home/antm/.bash_logout
+/home/antm/.bash_profile
+/home/antm/.bashrc
 $ find . -type d                 # chỉ thư mục
 $ find . -type f -name ".*"      # file ẩn
 # find /var/log -size +1M
@@ -241,9 +241,9 @@ $ echo "noi dung" &gt; goc.txt
 $ ln -s goc.txt loi-tat.txt        # symbolic link
 $ ln goc.txt cung.txt              # hard link
 $ ls -li
-1311 -rw-r--r--. 2 nhanle nhanle 9 cung.txt
-1311 -rw-r--r--. 2 nhanle nhanle 9 goc.txt
-1320 lrwxrwxrwx. 1 nhanle nhanle 7 loi-tat.txt -&gt; goc.txt
+1311 -rw-r--r--. 2 antm antm 9 cung.txt
+1311 -rw-r--r--. 2 antm antm 9 goc.txt
+1320 lrwxrwxrwx. 1 antm antm 7 loi-tat.txt -&gt; goc.txt
 $ rm goc.txt
 $ cat cung.txt
 noi dung
@@ -269,7 +269,7 @@ $ cd ~/congty &amp;&amp; ln -s ketoan/2026 ketoan-nay   # symlink tương đối
 # ln /etc/hosts /home/hosts.hl
 ln: failed to create hard link '/home/hosts.hl' =&gt; '/etc/hosts': Invalid cross-device link
 $ ln ~/congty ~/congty.hl
-ln: /home/nhanle/congty: hard link not allowed for directory
+ln: /home/antm/congty: hard link not allowed for directory
 # ln -sfn /opt/app-2.0 /opt/app/current        # đổi phiên bản đang dùng</pre>
   <div class="cols">
     <div class="stack small">
@@ -345,7 +345,7 @@ $ sudo !!       # lệnh vừa xong + sudo
 $ !find         # lệnh gần nhất bắt đầu bằng find
 $ history -c    # xóa lịch sử phiên hiện tại
 $ echo $HISTFILE $HISTSIZE
-/home/nhanle/.bash_history 1000</pre>
+/home/antm/.bash_history 1000</pre>
       <div class="callout tip"><span class="lbl">Phím vàng</span><kbd>Ctrl</kbd>+<kbd>R</kbd> rồi gõ vài chữ → tìm ngược trong lịch sử.</div>
     </div>
   </div>
@@ -358,9 +358,9 @@ $ echo $HISTFILE $HISTSIZE
     <div class="stack">
       <pre class="term tight">
 $ echo $HOME $USER
-/home/nhanle nhanle
+/home/antm antm
 $ echo $PATH
-/home/nhanle/.local/bin:/home/nhanle/bin:/usr/local/bin:/usr/bin
+/home/antm/.local/bin:/home/antm/bin:/usr/local/bin:/usr/bin
 $ env | head -3          # mọi biến môi trường
 $ TEN="Linux"; echo "Xin chao $TEN"
 Xin chao Linux

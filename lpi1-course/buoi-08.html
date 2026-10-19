@@ -55,7 +55,7 @@
         <tr><th>Loại tài khoản</th><th>UID</th><th>Ví dụ</th></tr>
         <tr><td>root (siêu quản trị)</td><td>0</td><td>root</td></tr>
         <tr><td>Hệ thống (chạy dịch vụ)</td><td>1 – 999</td><td>bin, sshd, apache</td></tr>
-        <tr><td>Người dùng thường</td><td>≥ 1000</td><td>nhanle, sinhvien</td></tr>
+        <tr><td>Người dùng thường</td><td>≥ 1000</td><td>antm, sinhvien</td></tr>
       </table>
       <div class="callout legacy"><span class="lbl">Ghi chú gốc (CentOS 5/6)</span>User thường bắt đầu từ UID 500.</div>
     </div>
@@ -81,7 +81,7 @@ uid=1002(g1) gid=1003(giaovien) groups=1003(giaovien),1002(hocvien)</pre>
     <pre class="term">
 $ tail -n 2 /etc/passwd
 apache:x:48:48:Apache:/usr/share/httpd:/sbin/nologin
-nhanle:x:1000:1000:Nhan Le:/home/nhanle:/bin/bash</pre>
+antm:x:1000:1000:An TM:/home/antm:/bin/bash</pre>
     <div class="callout tip"><span class="lbl">Mọi người đọc được</span><code>/etc/passwd</code> quyền 644 – vì vậy mật khẩu không được lưu ở đây.</div>
   </div>
 </section>
@@ -106,7 +106,7 @@ sinhvien:$6$Zx1...kQ0:20380:0:99999:7:::</pre>
       <h3>/etc/group</h3>
       <pre class="term tight">
 $ grep -E 'giaovien|hocvien|wheel' /etc/group
-wheel:x:10:nhanle
+wheel:x:10:antm
 hocvien:x:1002:g1
 giaovien:x:1003:</pre>
       <p><code>tên nhóm : x : GID : danh sách thành viên phụ</code></p>
@@ -198,7 +198,7 @@ g1 : hocvien giaovien giamdoc</pre>
       <tr><td>-c "..."</td><td>Đổi mô tả</td></tr>
     </table>
   </div>
-  <div class="callout warn"><span class="lbl">Lỗi kinh điển</span>Quên <code>-a</code>: <code>usermod -G wheel nhanle</code> sẽ <b>gỡ</b> nhanle khỏi mọi nhóm phụ khác.</div>
+  <div class="callout warn"><span class="lbl">Lỗi kinh điển</span>Quên <code>-a</code>: <code>usermod -G wheel antm</code> sẽ <b>gỡ</b> antm khỏi mọi nhóm phụ khác.</div>
 </section>
 
 <section class="slide">
@@ -218,7 +218,7 @@ drwx------. 3 test_test test_test 99 test-123</pre>
     <div class="stack small">
       <div class="callout"><span class="lbl">Vì sao hiện số?</span>Linux lưu chủ sở hữu bằng <b>UID</b>, không phải tên. User bị xóa → chỉ còn số.</div>
       <div class="callout warn"><span class="lbl">Rủi ro bảo mật</span>Tạo user mới trùng UID cũ → user mới sở hữu toàn bộ dữ liệu cũ. Đôi khi là mục đích (bàn giao), đôi khi là sự cố.</div>
-      <p class="muted">Ghi chú gốc minh họa đúng tình huống này: tạo <code>test_test</code> với <code>-u 502</code> để tiếp quản thư mục của <code>nhan_test</code>.</p>
+      <p class="muted">Ghi chú gốc minh họa đúng tình huống này: tạo <code>test_test</code> với <code>-u 502</code> để tiếp quản thư mục của <code>antm_test</code>.</p>
     </div>
   </div>
 </section>
@@ -257,12 +257,12 @@ test123:x:1006:
   <div class="cols">
     <div class="stack small">
       <pre class="term tight">
-# passwd -l nhanld          # khóa
-Locking password for user nhanld.
-# passwd -S nhanld
-nhanld LK 2026-10-19 0 99999 7 -1 (Password locked.)
-# passwd -u nhanld          # mở khóa
-# usermod -s /sbin/nologin nhanld   # cấm shell
+# passwd -l antm          # khóa
+Locking password for user antm.
+# passwd -S antm
+antm LK 2026-10-19 0 99999 7 -1 (Password locked.)
+# passwd -u antm          # mở khóa
+# usermod -s /sbin/nologin antm   # cấm shell
 # chage -l kt1
 # chage -M 90 -m 1 -W 7 kt1  # tối đa 90 ngày
 # chage -d 0 kt1             # buộc đổi khi đăng nhập
@@ -293,15 +293,15 @@ ocredit = -1    # ít nhất 1 ký tự đặc biệt</pre>
       <div class="callout tip"><span class="lbl">Thực tế doanh nghiệp</span>Khóa đăng nhập root, mọi người dùng tài khoản riêng + sudo → biết ai làm gì.</div>
     </div>
     <pre class="term">
-[root@server1 ~]# usermod -aG wheel nhanle
-[root@server1 ~]# su - nhanle
-[nhanle@server1 ~]$ dnf install -y tree
+[root@server1 ~]# usermod -aG wheel antm
+[root@server1 ~]# su - antm
+[antm@server1 ~]$ dnf install -y tree
 Error: This command has to be run with superuser privileges
-[nhanle@server1 ~]$ sudo dnf install -y tree
-[sudo] password for nhanle:
+[antm@server1 ~]$ sudo dnf install -y tree
+[sudo] password for antm:
 Complete!
-[nhanle@server1 ~]$ sudo -l            # mình được phép gì?
-[nhanle@server1 ~]$ sudo -i            # mở shell root
+[antm@server1 ~]$ sudo -l            # mình được phép gì?
+[antm@server1 ~]$ sudo -i            # mở shell root
 [root@server1 ~]# exit</pre>
   </div>
   <div class="callout info"><span class="lbl">Nhóm quản trị sẵn có</span>Rocky/RHEL: nhóm <code>wheel</code> · Ubuntu: nhóm <code>sudo</code>.</div>
@@ -313,9 +313,9 @@ Complete!
   <div class="cols w6">
     <pre class="file" data-file="/etc/sudoers.d/congty   (mở bằng: visudo -f /etc/sudoers.d/congty)">## user  MÁY=(CHẠY_VỚI_USER)  LỆNH
 root      ALL=(ALL)       ALL
-nhanle    ALL=(ALL)       ALL                  # toàn quyền
+antm    ALL=(ALL)       ALL                  # toàn quyền
 %admin    ALL=(ALL)       ALL                  # % = cả nhóm
-nhanle2   ALL=(ALL)       NOPASSWD: ALL        # không hỏi mật khẩu
+antm2   ALL=(ALL)       NOPASSWD: ALL        # không hỏi mật khẩu
 
 ## Chỉ được chạy 1 lệnh
 test      ALL=(root)      /usr/bin/systemctl restart httpd
@@ -364,7 +364,7 @@ ns1       ALL=(root)      USERMGMT</pre>
 # for u in kt1 kt2 ns1 gd1; do echo "$u:Lpi@2026" | chpasswd; done
 # id gd1; grep -E 'ketoan|nhansu|giamdoc' /etc/group; ls /home/kt1
 # chage -d 0 -M 90 kt1
-# passwd -l kt2 ; su - nhanle -c 'su - kt2'   # thử -&gt; Authentication failure
+# passwd -l kt2 ; su - antm -c 'su - kt2'   # thử -&gt; Authentication failure
 # passwd -u kt2
 # usermod -aG wheel gd1
 # visudo -f /etc/sudoers.d/nhansu
@@ -380,8 +380,8 @@ ns1  ALL=(root)  /usr/sbin/useradd, /usr/bin/passwd [A-Za-z]*, !/usr/bin/passwd 
   <ol class="ex small">
     <li>Tạo user <code>web</code> không đăng nhập được, home ở <code>/srv/web</code>.
       <details class="answer"><summary>Đáp án</summary><code>useradd -d /srv/web -s /sbin/nologin web</code></details></li>
-    <li>Thêm <code>nhanle</code> vào nhóm <code>docker</code> mà không mất các nhóm phụ hiện có.
-      <details class="answer"><summary>Đáp án</summary><code>usermod -aG docker nhanle</code> (hoặc <code>gpasswd -a nhanle docker</code>)</details></li>
+    <li>Thêm <code>antm</code> vào nhóm <code>docker</code> mà không mất các nhóm phụ hiện có.
+      <details class="answer"><summary>Đáp án</summary><code>usermod -aG docker antm</code> (hoặc <code>gpasswd -a antm docker</code>)</details></li>
     <li>Liệt kê tên các user có UID ≥ 1000.
       <details class="answer"><summary>Đáp án</summary><code>awk -F: '$3&gt;=1000 {print $1}' /etc/passwd</code></details></li>
     <li>Dòng <code>test:!!:20380:0:99999:7:::</code> trong shadow cho biết điều gì?
@@ -395,8 +395,8 @@ ns1  ALL=(root)  /usr/sbin/useradd, /usr/bin/passwd [A-Za-z]*, !/usr/bin/passwd 
   <p class="kicker ex">Trắc nghiệm nhanh · 5 phút</p>
   <h2>Kiểm tra trước khi về</h2>
   <ol class="ex small">
-    <li>Thêm <code>nhanle</code> vào nhóm <code>docker</code> mà không mất các nhóm phụ đang có?
-      <details class="answer"><summary>Đáp án</summary><code>usermod -aG docker nhanle</code></details></li>
+    <li>Thêm <code>antm</code> vào nhóm <code>docker</code> mà không mất các nhóm phụ đang có?
+      <details class="answer"><summary>Đáp án</summary><code>usermod -aG docker antm</code></details></li>
     <li>Buộc <code>kt1</code> đổi mật khẩu ở lần đăng nhập tới?
       <details class="answer"><summary>Đáp án</summary><code>chage -d 0 kt1</code> (hoặc <code>passwd -e kt1</code>).</details></li>
     <li>Vì sao phải sửa sudo bằng <code>visudo</code>?

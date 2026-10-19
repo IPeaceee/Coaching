@@ -71,7 +71,7 @@ ED25519 key fingerprint is SHA256:x3Jd...Qk.
 Are you sure you want to continue connecting (yes/no)? yes
 root@192.168.229.29's password:
 [root@server1 ~]# exit
-$ ssh -p 2222 nhanle@server1      # cổng khác
+$ ssh -p 2222 antm@server1      # cổng khác
 $ ssh root@server1 'df -h /'      # chạy 1 lệnh rồi thoát</pre>
   </div>
   <div class="callout"><span class="lbl">Fingerprint</span>Lần đầu kết nối, client lưu “dấu vân tay” của server vào <code>~/.ssh/known_hosts</code>. Nếu sau này nó thay đổi bất thường → cảnh báo có thể bị giả mạo.</div>
@@ -85,7 +85,7 @@ $ ssh root@server1 'df -h /'      # chạy 1 lệnh rồi thoát</pre>
       <pre class="file" data-file="/etc/ssh/sshd_config.d/00-lab.conf">Port 2222
 PermitRootLogin prohibit-password
 PasswordAuthentication yes
-AllowUsers root nhanle@192.168.229.* test
+AllowUsers root antm@192.168.229.* test
 # ListenAddress 192.168.229.29:2222</pre>
       <pre class="term">
 # sshd -t                       # kiểm tra cú pháp
@@ -355,9 +355,9 @@ find "$DEST" -name "etc-*.tar.gz" -mtime +7 -delete</pre>
 $ crontab -e         # sửa crontab của mình
 $ crontab -l         # xem
 $ crontab -r         # xóa hết (cẩn thận!)
-# crontab -u athena -l
+# crontab -u cybersys -l
 # ls /var/spool/cron/
-athena  root</pre>
+cybersys  root</pre>
       <pre class="file" data-file="/etc/crontab  hoặc  /etc/cron.d/backup   (có thêm cột USER)">SHELL=/bin/bash
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 MAILTO=root
@@ -383,11 +383,11 @@ MAILTO=root
   <p class="kicker lab">Lab A · 40 phút</p>
   <h2>Bảo vệ SSH trên server1</h2>
   <ol class="steps small">
-    <li>Trên server1 tạo <code>/etc/ssh/sshd_config.d/00-lab.conf</code>: cổng <b>2222</b>, <code>AllowUsers root nhanle</code></li>
+    <li>Trên server1 tạo <code>/etc/ssh/sshd_config.d/00-lab.conf</code>: cổng <b>2222</b>, <code>AllowUsers root antm</code></li>
     <li>Gán nhãn SELinux cho cổng 2222, mở firewall, <code>sshd -t</code>, restart (giữ 1 phiên cũ đang mở!)</li>
-    <li>Từ máy Windows: <code>ssh -p 2222 nhanle@192.168.229.29</code> → OK; user <code>test</code> → bị từ chối</li>
+    <li>Từ máy Windows: <code>ssh -p 2222 antm@192.168.229.29</code> → OK; user <code>test</code> → bị từ chối</li>
     <li>Trên server2: <code>ssh-keygen</code> cho root, <code>ssh-copy-id</code> sang root@server1:2222, đăng nhập không mật khẩu</li>
-    <li>Từ Windows: tạo khóa, chép khóa công khai lên tài khoản <code>nhanle</code> của server1</li>
+    <li>Từ Windows: tạo khóa, chép khóa công khai lên tài khoản <code>antm</code> của server1</li>
     <li>Đặt <code>PermitRootLogin prohibit-password</code> → root chỉ vào được bằng khóa. Kiểm tra bằng <code>sshd -T</code></li>
     <li>Dùng <code>scp</code> chép <code>/etc/hosts</code> từ server1 về Windows</li>
   </ol>
@@ -404,7 +404,7 @@ MAILTO=root
       <li>Viết <code>/root/rsync-home.sh</code> chứa lệnh đó, ghi log có ngày giờ vào <code>/var/log/rsync-home.log</code></li>
       <li><code>chmod +x</code>, chạy thử, xem log</li>
       <li>Tạo <code>/etc/cron.d/rsync-home</code> chạy script mỗi 5 phút</li>
-      <li>server1: tạo file mới trong <code>/home/nhanle</code>, xóa một file cũ → chờ ≤ 5 phút → kiểm tra server2</li>
+      <li>server1: tạo file mới trong <code>/home/antm</code>, xóa một file cũ → chờ ≤ 5 phút → kiểm tra server2</li>
       <li>Xem <code>/var/log/cron</code> trên server2 để thấy cron đã chạy</li>
     </ol>
     <details class="answer"><summary>Lời giải tham khảo</summary>

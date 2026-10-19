@@ -13,7 +13,7 @@
   <h1>Soạn thảo văn bản: vi/vim, nano &amp; sed</h1>
   <p class="sub">Kỹ năng bắt buộc của người quản trị: sửa file cấu hình ngay trên dòng lệnh, tìm &amp; thay thế hàng loạt.</p>
   <div class="chips"><span class="chip a">LPI-1 · Buổi 4/14</span><span class="chip lpi">103.8</span><span class="chip lpi">103.7</span><span class="chip">~3 giờ</span><span class="chip">Lab: Sửa cấu hình an toàn</span></div>
-  <div class="prompt">:%s/athena/linux/g</div>
+  <div class="prompt">:%s/cybersys/linux/g</div>
 </section>
 
 <section class="slide">
@@ -187,10 +187,10 @@ set hlsearch</pre></div>
     <div class="stack">
       <h3>Ký tự đặc biệt cần “escape” bằng <code>\</code></h3>
       <pre class="term">
-## Thay /home/athena bằng /root/abc
-:%s//home/athena//root/abc/g          # SAI
-:%s/\/home\/athena/\/root\/abc/g      # ĐÚNG
-:%s#/home/athena#/root/abc#g          # ĐÚNG, dễ đọc hơn
+## Thay /home/cybersys bằng /root/abc
+:%s//home/cybersys//root/abc/g          # SAI
+:%s/\/home\/cybersys/\/root\/abc/g      # ĐÚNG
+:%s#/home/cybersys#/root/abc#g          # ĐÚNG, dễ đọc hơn
 ## Thay C:\&gt; bằng D:\&gt;
 :%s/C:\\&gt;/D:\\&gt;/g</pre>
       <div class="callout tip"><span class="lbl">Mẹo</span>Đổi dấu phân cách sang <code>#</code> hoặc <code>|</code> khi chuỗi có nhiều dấu <code>/</code>.</div>
@@ -292,11 +292,11 @@ $ sudo update-alternatives --config editor</pre>
   <div class="cols w6">
     <ol class="steps small">
       <li><code>mkdir ~/lab4 &amp;&amp; cd ~/lab4</code>, mở <code>vim danhsach.txt</code></li>
-      <li>Gõ 5 dòng: <code>linux athena</code>, <code>LINUX athena</code>, <code>123linux Athena</code>, <code>windows</code>, <code>macos</code></li>
+      <li>Gõ 5 dòng: <code>linux cybersys</code>, <code>LINUX cybersys</code>, <code>123linux Cybersys</code>, <code>windows</code>, <code>macos</code></li>
       <li>Lưu nhưng không thoát (<code>:w</code>). Bật số dòng</li>
       <li>Copy dòng 1 và dán xuống cuối file 3 lần (<code>yy</code>, <code>G</code>, <code>3p</code>)</li>
       <li>Xóa dòng “windows” bằng <code>dd</code>, rồi hoàn tác <code>u</code>, rồi xóa lại</li>
-      <li>Thay mọi “athena” bằng “lpi” (có xác nhận <code>gc</code>)</li>
+      <li>Thay mọi “cybersys” bằng “lpi” (có xác nhận <code>gc</code>)</li>
       <li>Xóa dòng 6 → 8 bằng một lệnh <code>:6,8d</code></li>
       <li>Thoát không lưu <code>:q!</code>, mở lại kiểm tra: các thay đổi sau lần <code>:w</code> đã mất?</li>
       <li>Chạy <code>vimtutor</code> phần 1 &amp; 2</li>
