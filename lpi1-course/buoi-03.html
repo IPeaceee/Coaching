@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LPI-1 · Buổi 03 — Quản lý file &amp; thư mục</title>
+<link rel="stylesheet" href="assets/deck.css">
+</head>
+<body>
+
+<section class="slide title">
+  <div class="num">03</div>
+  <h1>Quản lý file, thư mục &amp; tùy biến shell</h1>
+  <p class="sub"><code>touch</code> · <code>mkdir</code> · <code>cp</code> · <code>mv</code> · <code>rm</code> · <code>find</code> · ký tự đại diện · link · alias · history · biến PATH</p>
+  <div class="chips"><span class="chip a">LPI-1 · Buổi 3/14</span><span class="chip lpi">103.3</span><span class="chip lpi">103.1</span><span class="chip lpi">104.6</span><span class="chip lpi">104.7</span><span class="chip">~3 giờ</span><span class="chip">Lab: Dựng cây thư mục công ty</span></div>
+  <div class="prompt">$ mkdir -p congty/{ketoan,nhansu}/2026</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Mục tiêu buổi học</p>
+  <h2>Sau buổi này bạn có thể…</h2>
+  <div class="cols">
+    <ul>
+      <li>Tạo file, thư mục (kể cả nhiều cấp) chỉ bằng 1 lệnh</li>
+      <li>Sao chép, đổi tên, di chuyển, xóa an toàn</li>
+      <li>Dùng <code>*</code> <code>?</code> <code>[ ]</code> <code>{ }</code> để thao tác hàng loạt</li>
+      <li>Tìm file theo tên, loại, chủ sở hữu, kích thước, thời gian</li>
+    </ul>
+    <ul>
+      <li>Chọn đúng giữa copy, hard link và symbolic link</li>
+      <li>Biết mỗi loại file nằm ở đâu theo FHS; nhận diện file bằng <code>file</code></li>
+      <li>Tạo alias, dùng lại lệnh cũ với history</li>
+      <li>Hiểu biến môi trường và <code>PATH</code>, lưu cấu hình vào <code>~/.bashrc</code></li>
+    </ul>
+  </div>
+  <div class="callout info"><span class="lbl">Ôn bài cũ</span>Đường dẫn tuyệt đối khác tương đối thế nào? <code>cd -</code> làm gì? Xem file ẩn bằng lệnh nào?</div>
+</section>
+
+<section class="slide" data-title="Hành trình">
+  <p class="kicker">Hành trình · server1 của Công ty ABC</p>
+  <h2>Buổi 03 nằm ở đâu?</h2>
+  <div class="journey">
+    <div class="past"><h3>Dùng lại từ trước</h3><ul class="small"><li>B2: <code>cd</code>, <code>ls</code>, đường dẫn tuyệt đối/tương đối</li><li>B2: dấu nháy – <code>find -name "*.txt"</code> cần nó</li><li>B2: <code>type</code>, lệnh trong/ngoài PATH</li></ul></div>
+    <div class="now"><h3>Hôm nay server1 có thêm</h3><ul class="small"><li><code>~/congty/{ketoan,nhansu,kythuat}</code> – kho tài liệu 3 phòng</li><li>Alias và thư mục <code>~/scripts</code> trong PATH của bạn</li><li>Biết đặt file đúng chỗ theo FHS</li></ul></div>
+    <div class="next"><h3>Dùng tiếp ở</h3><ul class="small"><li>B6: nén <code>~/congty</code> bằng tar</li><li>B8–10: chuyển thành thư mục dùng chung có phân quyền</li><li>B13: script trong <code>~/scripts</code> chạy bằng cron</li></ul></div>
+  </div>
+  <div class="objline">Mục tiêu LPI: <span class="chip lpi">103.3 Quản lý file · 4đ</span><span class="chip lpi">103.1 history, PATH</span><span class="chip lpi">104.6 Link · 2đ</span><span class="chip lpi">104.7 FHS · 2đ</span></div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Tạo file: <code>touch</code> và xem thuộc tính bằng <code>stat</code></h2>
+  <div class="cols">
+    <pre class="term">
+$ mkdir ~/test_touch &amp;&amp; cd ~/test_touch
+$ touch 123456.txt
+$ ls -l
+-rw-r--r--. 1 nhanle nhanle 0 Oct 19 16:07 123456.txt
+$ touch 123456.txt          # chạm lại: đổi giờ
+$ touch -t 202503141500 123456.txt
+$ ls -l 123456.txt
+-rw-r--r--. 1 nhanle nhanle 0 Mar 14  2025 123456.txt
+$ echo "xin chao" &gt; hello.txt   # tạo file có nội dung</pre>
+    <div class="stack small">
+      <ul>
+        <li>File chưa có → <code>touch</code> tạo file rỗng</li>
+        <li>File đã có → cập nhật thời gian (timestamp)</li>
+        <li><code>-t YYYYMMDDhhmm</code>: đặt thời gian tùy ý</li>
+      </ul>
+      <pre class="term tight">
+$ stat 123456.txt
+  File: 123456.txt
+  Size: 0     Blocks: 0   regular empty file
+Access: (0644/-rw-r--r--)  Uid: (1000/nhanle)
+Access: 2025-03-14 15:00:00 +0700
+Modify: 2025-03-14 15:00:00 +0700
+Change: 2026-10-19 16:18:23 +0700</pre>
+      <p class="xs muted">Access = lần đọc · Modify = lần sửa nội dung · Change = lần đổi thuộc tính (quyền, tên…)</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Tạo thư mục với <code>mkdir</code> — sức mạnh của <code>-p</code> và <code>{ }</code></h2>
+  <div class="cols">
+    <pre class="term">
+$ mkdir Test
+$ mkdir t1 t2 t3
+$ mkdir -p Test1/Test2/Test3
+$ mkdir -p Test10/{Test11,Test12,Test13}
+$ mkdir -p Test1000/{A,B,C}/abc
+# dnf install -y tree
+$ tree Test1000
+Test1000
+├── A
+│   └── abc
+├── B
+│   └── abc
+└── C
+    └── abc</pre>
+    <div class="stack small">
+      <table class="cheat">
+        <tr><td>mkdir dir</td><td>Tạo 1 thư mục</td></tr>
+        <tr><td>mkdir a b c</td><td>Nhiều thư mục cùng cấp</td></tr>
+        <tr><td>mkdir -p a/b/c</td><td>Tạo cả cha nếu chưa có (parent)</td></tr>
+        <tr><td>mkdir -p x/{1,2}</td><td>Brace expansion: x/1 và x/2</td></tr>
+        <tr><td>rmdir dir</td><td>Xóa thư mục <b>rỗng</b></td></tr>
+      </table>
+      <div class="callout tip"><span class="lbl">Thử trước</span><code>echo Test/{a,b}/{1..3}</code> in ra danh sách sẽ được tạo – kiểm tra rồi mới chạy thật.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Sao chép <code>cp</code> và di chuyển / đổi tên <code>mv</code></h2>
+  <div class="cols">
+    <div class="stack">
+      <pre class="term">
+$ cp hello.txt hello.bak
+$ cp -v hello.txt /tmp/
+'hello.txt' -&gt; '/tmp/hello.txt'
+$ cp -r Test1000 Test1000-copy
+$ cp -a /etc/ssh ~/ssh-backup   # giữ quyền, giờ
+$ cp -i hello.txt hello.bak
+cp: overwrite 'hello.bak'? n</pre>
+      <table class="cheat small">
+        <tr><td>-r</td><td>Chép thư mục (đệ quy)</td></tr>
+        <tr><td>-i</td><td>Hỏi trước khi ghi đè</td></tr>
+        <tr><td>-v</td><td>Hiện chi tiết</td></tr>
+        <tr><td>-a</td><td>Lưu trữ: đệ quy + giữ quyền, chủ, thời gian</td></tr>
+      </table>
+    </div>
+    <div class="stack">
+      <pre class="term">
+$ mv hello.bak hello.old        # đổi tên
+$ mv hello.old Test/            # di chuyển
+$ mv -v t1 t2 t3 Test/          # nhiều thứ vào 1 thư mục
+renamed 't1' -&gt; 'Test/t1'
+renamed 't2' -&gt; 'Test/t2'
+renamed 't3' -&gt; 'Test/t3'</pre>
+      <div class="callout"><span class="lbl">Một lệnh, hai việc</span>Linux không có lệnh “rename” riêng – <code>mv</code> vừa đổi tên vừa di chuyển.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Xóa với <code>rm</code> — không có thùng rác!</h2>
+  <div class="cols">
+    <pre class="term">
+$ rm hello.txt
+$ rm -i 123456.txt
+rm: remove regular empty file '123456.txt'? y
+$ rm Test
+rm: cannot remove 'Test': Is a directory
+$ rm -r Test
+$ rm -rf Test1000-copy     # không hỏi gì cả
+$ rmdir t1                 # chỉ xóa thư mục rỗng</pre>
+    <div class="stack">
+      <div class="callout warn"><span class="lbl">Nguy hiểm</span><code>rm -rf</code> với quyền root xóa vĩnh viễn, không hỏi. Một dấu cách sai: <code>rm -rf / tmp/abc</code> = xóa toàn bộ hệ thống.</div>
+      <div class="callout tip"><span class="lbl">Thói quen an toàn</span>
+        <ul class="small">
+          <li>Chạy <code>ls</code> với đúng mẫu trước, rồi mới đổi <code>ls</code> → <code>rm</code></li>
+          <li>Dùng <code>rm -i</code> khi chưa chắc</li>
+          <li>Không gõ <code>rm -rf</code> khi đang là root nếu không thật cần</li>
+        </ul>
+      </div>
+      <div class="callout legacy"><span class="lbl">Ghi chú</span>Trên Rocky, root có sẵn alias <code>rm='rm -i'</code>, <code>cp='cp -i'</code>, <code>mv='mv -i'</code>.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Ký tự đại diện (wildcard / globbing)</h2>
+  <div class="cols">
+    <table class="small">
+      <tr><th>Mẫu</th><th>Khớp với</th><th>Ví dụ khớp</th></tr>
+      <tr><td><code>*</code></td><td>0 hoặc nhiều ký tự bất kỳ</td><td><code>*.txt</code> → a.txt, bao-cao.txt</td></tr>
+      <tr><td><code>?</code></td><td>Đúng 1 ký tự</td><td><code>file?.log</code> → file1.log</td></tr>
+      <tr><td><code>[abc]</code></td><td>1 ký tự trong tập</td><td><code>[ab]*.txt</code> → a1.txt, b.txt</td></tr>
+      <tr><td><code>[0-9]</code></td><td>1 ký tự trong khoảng</td><td><code>log[0-9]</code> → log7</td></tr>
+      <tr><td><code>[!0-9]</code></td><td>KHÔNG thuộc tập</td><td><code>[!a]*</code> → b.txt</td></tr>
+      <tr><td><code>{a,b}</code></td><td>Sinh chuỗi (không cần file tồn tại)</td><td><code>{1..5}</code> → 1 2 3 4 5</td></tr>
+    </table>
+    <pre class="term">
+$ touch file{1..5}.log bao-cao.txt a.txt
+$ ls *.log
+file1.log file2.log file3.log file4.log file5.log
+$ ls file[2-4].log
+file2.log file3.log file4.log
+$ ls ?.txt
+a.txt
+$ rm -v file[13].log
+removed 'file1.log'
+removed 'file3.log'</pre>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Tìm kiếm với <code>find</code></h2>
+  <p class="small">Cú pháp: <code>find [nơi tìm] [điều kiện] [hành động]</code></p>
+  <div class="cols">
+    <pre class="term">
+# find /usr/sbin -name "use?add"
+/usr/sbin/useradd
+# find /usr/bin -name "pass*"
+/usr/bin/passwd
+# find /home -user nhanle -name ".bash*"
+/home/nhanle/.bash_logout
+/home/nhanle/.bash_profile
+/home/nhanle/.bashrc
+$ find . -type d                 # chỉ thư mục
+$ find . -type f -name ".*"      # file ẩn
+# find /var/log -size +1M
+# find /etc -mtime -1            # sửa trong 24h qua
+$ find ~ -name "*.log" -delete</pre>
+    <table class="cheat small">
+      <tr><td>-name "mẫu"</td><td>Theo tên (phân biệt hoa thường)</td></tr>
+      <tr><td>-iname</td><td>Theo tên, không phân biệt hoa thường</td></tr>
+      <tr><td>-type f / d / l</td><td>File / thư mục / link</td></tr>
+      <tr><td>-user · -group</td><td>Theo chủ sở hữu</td></tr>
+      <tr><td>-size +10M</td><td>Lớn hơn 10 MB (<code>-</code> = nhỏ hơn)</td></tr>
+      <tr><td>-mtime -7</td><td>Sửa trong 7 ngày qua</td></tr>
+      <tr><td>-exec cmd {} \;</td><td>Chạy lệnh cho từng kết quả</td></tr>
+    </table>
+  </div>
+  <div class="callout tip"><span class="lbl">Luôn đặt mẫu trong ngoặc kép</span><code>-name "*.txt"</code> – nếu không, shell sẽ tự mở rộng <code>*</code> trước khi find nhận được.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Liên kết: symbolic link và hard link</h2>
+  <div class="cols">
+    <div class="stack">
+      <pre class="term">
+$ echo "noi dung" &gt; goc.txt
+$ ln -s goc.txt loi-tat.txt        # symbolic link
+$ ln goc.txt cung.txt              # hard link
+$ ls -li
+1311 -rw-r--r--. 2 nhanle nhanle 9 cung.txt
+1311 -rw-r--r--. 2 nhanle nhanle 9 goc.txt
+1320 lrwxrwxrwx. 1 nhanle nhanle 7 loi-tat.txt -&gt; goc.txt
+$ rm goc.txt
+$ cat cung.txt
+noi dung
+$ cat loi-tat.txt
+cat: loi-tat.txt: No such file or directory</pre>
+    </div>
+    <div class="stack small">
+      <div class="card"><h3>Symbolic link (<code>ln -s</code>)</h3>Giống “shortcut” trên Windows. Trỏ tới <b>tên</b> file; file gốc mất → link “gãy”. Trỏ được tới thư mục, khác phân vùng.</div>
+      <div class="card"><h3>Hard link (<code>ln</code>)</h3>Một tên nữa cho <b>cùng dữ liệu</b> (cùng số inode). Xóa 1 tên, dữ liệu vẫn còn. Không áp dụng cho thư mục.</div>
+      <p class="muted xs">Ví dụ thực tế: <code>ls -l /etc/localtime</code> là symlink tới múi giờ.</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ · LPI 104.6</p>
+  <h2>Sao chép hay liên kết? Khi nào dùng loại nào</h2>
+  <pre class="term tight">
+$ cp goc.txt ban-sao.txt                        # dữ liệu riêng
+$ ln goc.txt cung.txt                           # cùng dữ liệu (cùng inode)
+$ ln -s /etc/ssh/sshd_config ~/sshd.lnk         # symlink tuyệt đối
+$ cd ~/congty &amp;&amp; ln -s ketoan/2026 ketoan-nay   # symlink tương đối
+# ln /etc/hosts /home/hosts.hl
+ln: failed to create hard link '/home/hosts.hl' =&gt; '/etc/hosts': Invalid cross-device link
+$ ln ~/congty ~/congty.hl
+ln: /home/nhanle/congty: hard link not allowed for directory
+# ln -sfn /opt/app-2.0 /opt/app/current        # đổi phiên bản đang dùng</pre>
+  <div class="cols">
+    <div class="stack small">
+      <table class="grid">
+        <tr><th></th><th>cp</th><th>hard link</th><th>symlink</th></tr>
+        <tr><td>Dữ liệu riêng</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td></tr>
+        <tr><td>Khác phân vùng</td><td class="yes">✓</td><td class="no">✗</td><td class="yes">✓</td></tr>
+        <tr><td>Cho thư mục</td><td class="yes">✓</td><td class="no">✗</td><td class="yes">✓</td></tr>
+        <tr><td>Xóa gốc vẫn dùng được</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">✗</td></tr>
+      </table>
+    </div>
+    <div class="stack small">
+      <div class="callout"><span class="lbl">Vì sao lỗi “cross-device”?</span>Ở B1 ta đặt <code>/home</code> trên ổ sdb, còn <code>/etc</code> trên sda – hard link không vượt qua filesystem khác.</div>
+      <div class="callout tip"><span class="lbl">Dùng trong quản trị</span>Symlink “current” để đổi phiên bản phần mềm, <code>/etc/alternatives</code> chọn lệnh mặc định.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết · LPI 104.7</p>
+  <h2>FHS: mỗi loại file có “nhà” riêng</h2>
+  <div class="cols w6">
+    <table class="small">
+      <tr><th>Thư mục</th><th>Chứa gì</th></tr>
+      <tr><td><code>/usr/bin</code> · <code>/usr/sbin</code></td><td>Lệnh người dùng · lệnh quản trị (do gói cài)</td></tr>
+      <tr><td><code>/usr/lib</code>, <code>/usr/lib64</code></td><td>Thư viện chia sẻ (B7)</td></tr>
+      <tr><td><code>/usr/local</code></td><td>Phần mềm/script <b>tự cài</b> cho máy này</td></tr>
+      <tr><td><code>/opt</code></td><td>Phần mềm bên thứ ba đóng gói trọn bộ</td></tr>
+      <tr><td><code>/var/log</code> · <code>/var/lib</code> · <code>/var/spool</code></td><td>Log · dữ liệu trạng thái (CSDL rpm) · hàng đợi (cron, mail)</td></tr>
+      <tr><td><code>/tmp</code> · <code>/var/tmp</code></td><td>Tạm, có thể bị xóa khi reboot · tạm, giữ qua reboot</td></tr>
+      <tr><td><code>/srv</code></td><td>Dữ liệu máy chủ phục vụ ra ngoài (web, FTP)</td></tr>
+      <tr><td><code>/run</code></td><td>Dữ liệu lúc chạy (PID, socket), nằm trong RAM</td></tr>
+      <tr><td><code>/media</code> · <code>/mnt</code></td><td>USB tự mount · mount tạm bằng tay</td></tr>
+    </table>
+    <div class="stack small">
+      <h3>Đừng đoán loại file qua đuôi: dùng <code>file</code></h3>
+      <pre class="term tight">
+$ file /etc/passwd /usr/bin/ls /dev/sda
+/etc/passwd: ASCII text
+/usr/bin/ls: ELF 64-bit LSB pie executable, x86-64
+/dev/sda:    block special (8/0)</pre>
+      <div class="callout link"><span class="lbl">Liên kết</span>B7 cài GNU hello vào <code>/opt/hello</code>, B9 đặt web vào <code>/srv/webapp</code>, B13 đặt script vào <code>/root</code> hoặc <code>/usr/local/sbin</code>.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Alias và history — gõ ít, làm nhiều</h2>
+  <div class="cols">
+    <div class="stack">
+      <pre class="term tight">
+$ alias
+alias ll='ls -l --color=auto'
+alias l.='ls -d .* --color=auto'
+$ alias copy='cp -v'
+$ alias ports='ss -tulnp'
+$ unalias copy</pre>
+      <p class="small">Alias gõ ở dòng lệnh <b>mất khi đăng xuất</b>. Muốn giữ lâu dài → thêm vào <code>~/.bashrc</code>:</p>
+      <pre class="term">
+$ echo "alias ll='ls -lh --color=auto'" &gt;&gt; ~/.bashrc
+$ source ~/.bashrc</pre>
+    </div>
+    <div class="stack">
+      <pre class="term">
+$ history | tail -3
+  101  cd /etc
+  102  ls -l
+  103  history | tail -3
+$ !102          # chạy lại lệnh số 102
+$ !!            # chạy lại lệnh vừa xong
+$ sudo !!       # lệnh vừa xong + sudo
+$ !find         # lệnh gần nhất bắt đầu bằng find
+$ history -c    # xóa lịch sử phiên hiện tại
+$ echo $HISTFILE $HISTSIZE
+/home/nhanle/.bash_history 1000</pre>
+      <div class="callout tip"><span class="lbl">Phím vàng</span><kbd>Ctrl</kbd>+<kbd>R</kbd> rồi gõ vài chữ → tìm ngược trong lịch sử.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Biến môi trường và <code>PATH</code></h2>
+  <div class="cols">
+    <div class="stack">
+      <pre class="term tight">
+$ echo $HOME $USER
+/home/nhanle nhanle
+$ echo $PATH
+/home/nhanle/.local/bin:/home/nhanle/bin:/usr/local/bin:/usr/bin
+$ env | head -3          # mọi biến môi trường
+$ TEN="Linux"; echo "Xin chao $TEN"
+Xin chao Linux
+$ export PATH=$PATH:/opt/tools/bin</pre>
+      <p class="small"><b>PATH</b> = danh sách thư mục shell tìm lệnh, theo thứ tự, ngăn cách bằng <code>:</code>. Lệnh nằm ngoài PATH phải gõ đường dẫn đầy đủ (vd <code>/opt/tools/bin/abc</code> hoặc <code>./script.sh</code>).</p>
+    </div>
+    <div class="stack small">
+      <table>
+        <tr><th>File</th><th>Khi nào chạy</th></tr>
+        <tr><td><code>~/.bash_profile</code></td><td>Đăng nhập (login shell)</td></tr>
+        <tr><td><code>~/.bashrc</code></td><td>Mỗi lần mở shell mới</td></tr>
+        <tr><td><code>/etc/profile</code>, <code>/etc/bashrc</code></td><td>Cho mọi user</td></tr>
+      </table>
+      <div class="callout legacy"><span class="lbl">Ghi chú gốc</span>CentOS 6: user thường gõ <code>ifconfig</code> bị “command not found” vì <code>/sbin</code> không nằm trong PATH.</div>
+      <div class="callout"><span class="lbl">Lưu cố định</span>Thêm <code>export PATH=$PATH:/opt/tools/bin</code> vào <code>~/.bashrc</code>.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab · 60 phút</p>
+  <h2>Dựng cây thư mục công ty</h2>
+  <div class="cols w6">
+    <ol class="steps small">
+      <li>Trong home, tạo bằng <b>một lệnh</b>: <code>congty/{ketoan,nhansu,kythuat}/{2025,2026}</code></li>
+      <li>Tạo các file <code>bc-thang{1..12}.txt</code> trong <code>congty/ketoan/2026</code></li>
+      <li>Chép toàn bộ thư mục <code>ketoan</code> thành <code>ketoan-backup</code></li>
+      <li>Đổi tên <code>kythuat</code> thành <code>it</code>; chuyển <code>bc-thang1..3</code> sang <code>2025</code></li>
+      <li>Xóa các file tháng 10–12 trong backup chỉ bằng 1 lệnh có wildcard</li>
+      <li>Dùng <code>find</code>: đếm số file <code>.txt</code> trong <code>congty</code>; liệt kê các thư mục rỗng (<code>-empty</code>)</li>
+      <li>Tạo symlink <code>~/ketoan-nay</code> trỏ tới <code>congty/ketoan/2026</code>, <code>cd</code> qua link</li>
+      <li>Tạo alias <code>cty='cd ~/congty &amp;&amp; tree'</code>, lưu vào <code>~/.bashrc</code>, mở shell mới thử lại</li>
+    </ol>
+    <pre class="tree">
+congty/
+├── it/
+│   ├── 2025/
+│   └── 2026/
+├── ketoan/
+│   ├── 2025/  bc-thang1..3
+│   └── 2026/  bc-thang4..12
+├── ketoan-backup/
+│   └── 2026/  bc-thang1..9
+└── nhansu/
+    ├── 2025/
+    └── 2026/</pre>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab · Gợi ý lời giải</p>
+  <h2>Lời giải tham khảo</h2>
+  <details class="answer"><summary>Hiện lời giải</summary>
+  <pre class="term">
+$ cd ~ &amp;&amp; mkdir -p congty/{ketoan,nhansu,kythuat}/{2025,2026}
+$ touch congty/ketoan/2026/bc-thang{1..12}.txt
+$ cp -r congty/ketoan congty/ketoan-backup
+$ mv congty/kythuat congty/it
+$ mv congty/ketoan/2026/bc-thang[1-3].txt congty/ketoan/2025/
+$ rm -v congty/ketoan-backup/2026/bc-thang1[0-2].txt
+$ find congty -type f -name "*.txt" | wc -l
+21
+$ find congty -type d -empty
+$ ln -s ~/congty/ketoan/2026 ~/ketoan-nay &amp;&amp; cd ~/ketoan-nay &amp;&amp; pwd -P
+$ echo "alias cty='cd ~/congty &amp;&amp; tree'" &gt;&gt; ~/.bashrc &amp;&amp; source ~/.bashrc</pre>
+  </details>
+  <div class="callout warn"><span class="lbl">Bẫy</span><code>bc-thang[1-3].txt</code> khớp 1, 2, 3 nhưng <b>không</b> khớp 10–12 vì sau chữ số là <code>.txt</code>. Còn <code>bc-thang1*</code> lại khớp 1, 10, 11, 12!</div>
+  <aside class="notes">Số file: 12 file trong ketoan (3 ở 2025 + 9 ở 2026) + 9 file trong backup = 21. Cho học viên tự giải thích vì sao ra 21.</aside>
+</section>
+
+<section class="slide">
+  <p class="kicker ex">Bài tập</p>
+  <h2>Luyện tập</h2>
+  <ol class="ex small">
+    <li>Tạo cấu trúc <code>du-an/{web,app}/{src,docs}</code> bằng 1 lệnh.
+      <details class="answer"><summary>Đáp án</summary><code>mkdir -p du-an/{web,app}/{src,docs}</code></details></li>
+    <li>Tìm trong <code>/etc</code> các file có đuôi <code>.conf</code>, không phân biệt hoa thường.
+      <details class="answer"><summary>Đáp án</summary><code>find /etc -type f -iname "*.conf"</code></details></li>
+    <li>Tìm các file &gt; 50 MB trên toàn hệ thống, bỏ qua thông báo lỗi.
+      <details class="answer"><summary>Đáp án</summary><code>find / -type f -size +50M 2&gt;/dev/null</code> (<code>2&gt;/dev/null</code> học kỹ ở buổi 5)</details></li>
+    <li>Đổi timestamp file <code>a.txt</code> thành 8h00 ngày 01/01/2025.
+      <details class="answer"><summary>Đáp án</summary><code>touch -t 202501010800 a.txt</code></details></li>
+    <li>Tại sao <code>cp thu_muc /tmp</code> báo lỗi “omitting directory”?
+      <details class="answer"><summary>Đáp án</summary>Thiếu <code>-r</code> – cp mặc định chỉ chép file.</details></li>
+    <li>Thêm <code>~/scripts</code> vào PATH vĩnh viễn cho user hiện tại.
+      <details class="answer"><summary>Đáp án</summary><code>echo 'export PATH=$PATH:$HOME/scripts' &gt;&gt; ~/.bashrc; source ~/.bashrc</code> (dùng nháy đơn để <code>$PATH</code> không bị mở rộng ngay)</details></li>
+  </ol>
+</section>
+
+<section class="slide" data-title="Trắc nghiệm nhanh">
+  <p class="kicker ex">Trắc nghiệm nhanh · 5 phút</p>
+  <h2>Kiểm tra trước khi về</h2>
+  <ol class="ex small">
+    <li>Mẫu <code>file?.log</code> khớp tên nào: <code>file10.log</code>, <code>file.log</code>, <code>file1.log</code>?
+      <details class="answer"><summary>Đáp án</summary>Chỉ <code>file1.log</code> – <code>?</code> là đúng một ký tự.</details></li>
+    <li>Hai trường hợp không tạo được hard link?
+      <details class="answer"><summary>Đáp án</summary>Cho thư mục, và tới file nằm trên filesystem khác.</details></li>
+    <li>Script quản trị tự viết cho riêng máy này đặt ở đâu theo FHS?
+      <details class="answer"><summary>Đáp án</summary><code>/usr/local/sbin</code> (hoặc <code>/usr/local/bin</code>).</details></li>
+  </ol>
+  <div class="chips"><a class="btn" href="quiz.html?b=3">Làm đủ 14 câu của buổi 03 →</a><a class="btn ghost" href="quiz.html?obj=103.3">Luyện mục tiêu 103.3</a></div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Tổng kết</p>
+  <h2>Bảng lệnh buổi 03 &amp; bài về nhà</h2>
+  <div class="cols">
+    <table class="cheat small">
+      <tr><td>touch · stat</td><td>Tạo file / xem thuộc tính</td></tr>
+      <tr><td>mkdir -p · rmdir</td><td>Tạo / xóa thư mục</td></tr>
+      <tr><td>cp -r -a -i -v</td><td>Sao chép</td></tr>
+      <tr><td>mv</td><td>Đổi tên / di chuyển</td></tr>
+      <tr><td>rm -r -i -f</td><td>Xóa</td></tr>
+      <tr><td>find -name -type -size</td><td>Tìm kiếm</td></tr>
+      <tr><td>ln -s</td><td>Tạo symlink</td></tr>
+      <tr><td>alias · history · !n</td><td>Tiện ích shell</td></tr>
+      <tr><td>echo $PATH · export</td><td>Biến môi trường</td></tr>
+    </table>
+    <div class="stack">
+      <h3>Bài về nhà</h3>
+      <ol class="small">
+        <li>Làm lại lab không xem lời giải</li>
+        <li>Tạo 3 alias hữu ích cho riêng bạn trong <code>~/.bashrc</code></li>
+        <li>Đọc <code>man find</code>: tìm hiểu <code>-perm</code> và <code>-newer</code></li>
+      </ol>
+      <div class="callout info"><span class="lbl">Buổi 04</span>Trình soạn thảo <b>vi/vim</b>, nano và <code>sed</code> – kỹ năng bắt buộc để sửa file cấu hình.</div>
+    </div>
+  </div>
+</section>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

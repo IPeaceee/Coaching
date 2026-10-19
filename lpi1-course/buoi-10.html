@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LPI-1 · Buổi 10 — Quyền đặc biệt &amp; ACL</title>
+<link rel="stylesheet" href="assets/deck.css">
+</head>
+<body>
+
+<section class="slide title">
+  <div class="num">10</div>
+  <h1>Quyền đặc biệt &amp; ACL</h1>
+  <p class="sub">SUID · SGID · sticky bit · <code>setfacl</code> / <code>getfacl</code> – giải những bài toán phân quyền mà <code>chmod</code> không làm được.</p>
+  <div class="chips"><span class="chip a">LPI-1 · Buổi 10/14</span><span class="chip lpi">104.5</span><span class="chip">ACL: ngoài đề</span><span class="chip">~3 giờ</span><span class="chip">Lab: Thư mục dùng chung cho giáo viên &amp; sinh viên</span></div>
+  <div class="prompt"># setfacl -m g:giaovien:rwx /data/giao_vien</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Mục tiêu buổi học</p>
+  <h2>Sau buổi này bạn có thể…</h2>
+  <div class="cols">
+    <ul>
+      <li>Nhận ra <code>s</code>, <code>S</code>, <code>t</code>, <code>T</code> trong chuỗi quyền</li>
+      <li>Giải thích SUID (vd <code>passwd</code>) và rủi ro bảo mật</li>
+      <li>Dùng SGID để file trong thư mục chung có cùng nhóm</li>
+      <li>Dùng sticky bit để chặn xóa file của người khác</li>
+    </ul>
+    <ul>
+      <li>Cấp quyền cho <b>từng user / nhóm</b> bằng ACL</li>
+      <li>Hiểu mask và quyền hiệu lực (effective)</li>
+      <li>Dùng ACL mặc định để file mới tự kế thừa quyền</li>
+    </ul>
+  </div>
+  <div class="callout info"><span class="lbl">Ôn bài cũ</span>Quyền 753 trên thư mục cho phép other làm gì? Vì sao user thường không xóa được file của root trong <code>/tmp</code>?</div>
+</section>
+
+<section class="slide" data-title="Hành trình">
+  <p class="kicker">Hành trình · server1 của Công ty ABC</p>
+  <h2>Buổi 10 nằm ở đâu?</h2>
+  <div class="journey">
+    <div class="past"><h3>Dùng lại từ trước</h3><ul class="small"><li>B9: thí nghiệm 753/777 – ai cũng xóa được file của root</li><li>B9: chmod 3 chữ số, umask</li><li>B8: nhóm giaovien, hocvien, sinhvien</li></ul></div>
+    <div class="now"><h3>Hôm nay server1 có thêm</h3><ul class="small"><li>Thư mục chia sẻ <code>/data</code> cho giáo viên – sinh viên</li><li>Rà soát file SUID lạ (bảo mật)</li><li>Cấp quyền riêng từng người bằng ACL</li></ul></div>
+    <div class="next"><h3>Dùng tiếp ở</h3><ul class="small"><li>B11: đưa <code>/data</code> lên ổ riêng</li><li>Đề thi câu 4: ACL cho riêng user <code>test</code></li><li>B13: <code>cp -a</code>, <code>tar --acls</code> giữ ACL khi sao lưu</li></ul></div>
+  </div>
+  <div class="objline">Mục tiêu LPI: <span class="chip lpi">104.5 SUID · SGID · sticky · 3đ</span> · ACL <span class="out-tag">ngoài đề LPIC-1</span> nhưng cần cho đề thi kết thúc môn và công việc thật</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Ba quyền đặc biệt — chữ số thứ tư</h2>
+  <table>
+    <tr><th>Quyền</th><th>Số</th><th>Ký hiệu</th><th>Trên FILE chạy được</th><th>Trên THƯ MỤC</th></tr>
+    <tr><td><b>SUID</b></td><td>4</td><td><code>rws------</code> (vị trí x của <b>u</b>)</td><td>Chạy với quyền của <b>chủ file</b></td><td>— (không tác dụng)</td></tr>
+    <tr><td><b>SGID</b></td><td>2</td><td><code>---rws---</code> (vị trí x của <b>g</b>)</td><td>Chạy với quyền của <b>nhóm file</b></td><td>File tạo bên trong <b>kế thừa nhóm</b> của thư mục</td></tr>
+    <tr><td><b>Sticky</b></td><td>1</td><td><code>------rwt</code> (vị trí x của <b>o</b>)</td><td>—</td><td>Chỉ <b>chủ file</b> (chủ thư mục, root) mới xóa/đổi tên được</td></tr>
+  </table>
+  <div class="cols">
+    <pre class="term">
+# chmod 4755 file      # = chmod u+s
+# chmod 2775 dir       # = chmod g+s
+# chmod 1777 dir       # = chmod o+t
+# chmod 3770 dir       # SGID + sticky</pre>
+    <div class="callout"><span class="lbl">Chữ thường hay hoa?</span><code>s</code>/<code>t</code> = có cả x bên dưới. <code>S</code>/<code>T</code> = đặt quyền đặc biệt nhưng <b>thiếu x</b> (thường là cấu hình sai, trừ trường hợp sticky trên thư mục không cho other).</div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>SUID — vì sao user thường đổi được mật khẩu?</h2>
+  <div class="cols">
+    <div class="stack">
+      <pre class="term">
+$ ls -l /etc/shadow /usr/bin/passwd
+----------. 1 root root   980 /etc/shadow
+-rwsr-xr-x. 1 root root 32648 /usr/bin/passwd
+# find / -perm -4000 -type f 2&gt;/dev/null
+/usr/bin/passwd
+/usr/bin/su
+/usr/bin/sudo
+/usr/bin/mount
+...</pre>
+      <p class="small"><code>/etc/shadow</code> không ai ghi được, nhưng <code>passwd</code> có SUID của root → khi nhanle chạy, tiến trình mang quyền root và ghi được mật khẩu mới.</p>
+    </div>
+    <div class="stack small">
+      <h3>Demo: vì sao SUID nguy hiểm</h3>
+      <pre class="term">
+# cp /usr/bin/cat /usr/local/bin/mycat
+# chmod u+s /usr/local/bin/mycat
+[u1@server1 ~]$ cat /etc/shadow
+cat: /etc/shadow: Permission denied
+[u1@server1 ~]$ mycat /etc/shadow | head -1
+root:$6$Kx...:20380:0:99999:7:::
+# rm -f /usr/local/bin/mycat      # dọn ngay!</pre>
+      <div class="callout warn"><span class="lbl">Bảo mật</span>Định kỳ rà soát file SUID lạ. Kẻ tấn công rất thích để lại “cửa hậu” SUID.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>SGID trên thư mục — giữ đúng nhóm cho file chung</h2>
+  <div class="cols">
+    <pre class="term">
+# groupadd hocvien ; useradd -g hocvien u3 ; useradd batky
+# mkdir /shared ; chgrp hocvien /shared ; chmod 777 /shared
+[u3@server1 ~]$ echo u3 &gt; /shared/u3.txt
+[batky@server1 ~]$ echo bk &gt; /shared/batky.txt
+# ls -l /shared
+-rw-r--r--. 1 batky batky   3 batky.txt     ← nhóm lộn xộn
+-rw-r--r--. 1 u3    hocvien 3 u3.txt
+# groupadd giaovien ; chgrp giaovien /shared
+# chmod g+s /shared ; ls -ld /shared
+drwxrwsrwx. 2 root giaovien 40 /shared
+[batky@server1 ~]$ echo bk &gt; /shared/batky-1.txt
+[u3@server1 ~]$ echo u3 &gt; /shared/u3-1.txt
+# ls -l /shared | grep -- -1
+-rw-r--r--. 1 batky giaovien 3 batky-1.txt  ← theo thư mục
+-rw-r--r--. 1 u3    giaovien 3 u3-1.txt</pre>
+    <div class="stack small">
+      <p>Không có SGID: file mang <b>nhóm chính của người tạo</b> → đồng nghiệp cùng phòng không đọc/sửa được theo quyền nhóm.</p>
+      <p>Có SGID: file mới mang <b>nhóm của thư mục</b>, bất kể ai tạo.</p>
+      <div class="callout"><span class="lbl">Chỉ ảnh hưởng file MỚI</span>File có sẵn trước khi đặt SGID không bị đổi nhóm (ghi chú gốc bài 6.5).</div>
+      <div class="callout tip"><span class="lbl">Thư mục nhóm chuẩn</span><code>chgrp nhom dir; chmod 2770 dir</code></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Sticky bit — cùng ghi được nhưng không xóa của nhau</h2>
+  <div class="cols">
+    <pre class="term">
+# useradd -g giaovien g1 ; useradd -g giaovien g2
+# mkdir /baigiang ; chown g1:giaovien /baigiang
+# chmod 775 /baigiang
+[g1@server1 ~]$ echo bai1 &gt; /baigiang/g1_bai.txt
+[g2@server1 ~]$ mv /baigiang/g1_bai.txt /baigiang/g2_bai.txt
+## THÀNH CÔNG – g2 đổi tên bài của g1!
+# chmod o+t /baigiang ; ls -ld /baigiang
+drwxrwxr-t. 2 g1 giaovien 6 /baigiang
+[g1@server1 ~]$ echo bai2 &gt; /baigiang/g1_bai2.txt
+[g2@server1 ~]$ rm /baigiang/g1_bai2.txt
+rm: cannot remove '/baigiang/g1_bai2.txt': Operation not permitted
+$ ls -ld /tmp
+drwxrwxrwt. 12 root root 4096 /tmp</pre>
+    <div class="stack small">
+      <p>Có sticky bit, người được <b>xóa / đổi tên</b> một file chỉ gồm:</p>
+      <ul>
+        <li>chủ của file đó</li>
+        <li>chủ của thư mục</li>
+        <li>root</li>
+      </ul>
+      <div class="callout"><span class="lbl">Ví dụ kinh điển</span><code>/tmp</code> = 1777: ai cũng ghi được, không ai xóa được file của người khác.</div>
+      <div class="callout warn"><span class="lbl">Sticky không chặn SỬA nội dung</span>Nếu file có quyền w cho nhóm, g2 vẫn sửa được nội dung – chỉ không xóa/đổi tên.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết <span class="out-tag">ngoài đề LPIC-1 · cần cho công việc</span></p>
+  <h2>Vì sao cần ACL?</h2>
+  <div class="cols">
+    <div class="stack">
+      <p>chmod chỉ có <b>3 đối tượng</b>: 1 chủ, 1 nhóm, còn lại. Bài toán thực tế:</p>
+      <div class="card tint small">“Thư mục <code>/data-shared</code> của root. Cho <b>g1</b> toàn quyền, <b>g2</b> chỉ đọc, nhóm <b>giaovien</b> đọc, còn lại cấm.”</div>
+      <p class="small">→ cần nhiều user/nhóm với quyền khác nhau trên <b>cùng</b> một đối tượng → <b>ACL</b> (Access Control List).</p>
+    </div>
+    <div class="stack small">
+      <pre class="term">
+$ getfacl /data-shared
+\# file: data-shared
+\# owner: root
+\# group: root
+user::rwx
+group::r-x
+other::---</pre>
+      <div class="callout legacy"><span class="lbl">Ghi chú gốc (CentOS 5/6)</span>Phải thêm <code>acl</code> vào <code>/etc/fstab</code> và <code>mount -o remount /</code>. Ext4/XFS hiện đại <b>bật ACL sẵn</b> – không cần nữa.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ <span class="out-tag">ngoài đề LPIC-1</span></p>
+  <h2><code>setfacl</code> / <code>getfacl</code></h2>
+  <div class="cols">
+    <pre class="term">
+# mkdir /data-shared ; chmod 750 /data-shared
+# setfacl -m u:g1:rwx /data-shared
+# setfacl -m u:g2:r-x /data-shared
+# setfacl -m g:giaovien:r-x /data-shared
+# ls -ld /data-shared
+drwxrwx---+ 2 root root 6 /data-shared   ← dấu +
+# getfacl /data-shared
+\# file: data-shared
+user::rwx
+user:g1:rwx
+user:g2:r-x
+group::r-x
+group:giaovien:r-x
+mask::rwx
+other::---
+# setfacl -x u:g2 /data-shared        # gỡ 1 mục
+# setfacl -b /data-shared             # gỡ toàn bộ ACL</pre>
+    <table class="cheat small">
+      <tr><td>-m u:user:rwx</td><td>Thêm/sửa quyền cho user</td></tr>
+      <tr><td>-m g:nhom:r-x</td><td>Thêm/sửa quyền cho nhóm</td></tr>
+      <tr><td>-m u:user:---</td><td>Cấm riêng 1 user</td></tr>
+      <tr><td>-x u:user</td><td>Gỡ mục ACL của user</td></tr>
+      <tr><td>-b</td><td>Gỡ mọi ACL mở rộng</td></tr>
+      <tr><td>-R</td><td>Đệ quy</td></tr>
+      <tr><td>-d -m …</td><td>ACL mặc định (cho file mới)</td></tr>
+      <tr><td>getfacl -R d &gt; f</td><td>Sao lưu ACL</td></tr>
+      <tr><td>setfacl --restore=f</td><td>Khôi phục ACL</td></tr>
+    </table>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết <span class="out-tag">ngoài đề LPIC-1</span></p>
+  <h2>Mask, ACL mặc định và “cấm riêng 1 người”</h2>
+  <div class="cols">
+    <div class="stack small">
+      <h3>Mask = trần quyền</h3>
+      <pre class="term tight">
+# chmod g=rx /data-shared     # chmod nhóm = sửa MASK
+# getfacl /data-shared | grep g1
+user:g1:rwx       #effective:r-x</pre>
+      <p>Quyền thật của user/nhóm có tên = quyền ghi trong ACL <b>∩</b> mask. Trên file có ACL, <code>chmod g=…</code> thực chất đổi mask.</p>
+      <h3>Cấm riêng 1 user</h3>
+      <pre class="term tight">
+# mkdir /cho-moi-nguoi              # 755: ai cũng vào
+# setfacl -m u:g3:--- /cho-moi-nguoi
+[g3@server1 ~]$ cd /cho-moi-nguoi
+bash: cd: /cho-moi-nguoi: Permission denied</pre>
+    </div>
+    <div class="stack small">
+      <h3>ACL mặc định — kế thừa cho file mới</h3>
+      <pre class="term tight">
+# setfacl -d -m g:giaovien:rwx /data/giao_vien
+[g1@server1 ~]$ touch /data/giao_vien/bai.txt
+# getfacl /data/giao_vien/bai.txt | grep giaovien
+group:giaovien:rw-</pre>
+      <div class="callout"><span class="lbl">Ghi chú gốc: “ACL lấy quyền thấp nhất”</span>Chính xác hơn: mỗi đối tượng được kiểm tra <b>riêng</b>. Nhóm có rwx trên thư mục, nhưng khi g1 <code>chmod 600</code> file của mình thì mask của file thành <code>---</code> → nhóm không đọc được file đó.</div>
+      <div class="callout tip"><span class="lbl">Giữ ACL khi sao chép</span><code>cp -a</code> giữ ACL; <code>cp</code> thường thì không. <code>tar --acls</code> khi sao lưu.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab tổng hợp · 70 phút</p>
+  <h2>Thư mục dùng chung cho giáo viên &amp; sinh viên</h2>
+  <div class="cols">
+    <pre class="tree">
+/data                    root:root 750
+├── giao_vien/          root:root 750
+│     bai-giang.txt
+└── sinh_vien/          root:root 750
+      tai-lieu.txt
+
+Nhóm giaovien: g1, g2, g3
+Nhóm sinhvien: s1, s2
+User ngoài:    u1</pre>
+    <ol class="steps small">
+      <li><b>giaovien</b>: xem được <code>/data</code>, vào được cả 2 thư mục con</li>
+      <li><b>sinhvien</b>: đi xuyên qua <code>/data</code> nhưng không xem được trong đó có gì; chỉ vào được <code>sinh_vien</code></li>
+      <li><code>giao_vien</code>: giáo viên tạo được file; nhưng không xóa/đổi tên file của nhau</li>
+      <li>File giáo viên tạo trong <code>giao_vien</code> tự động cho cả nhóm đọc &amp; sửa</li>
+      <li><code>sinh_vien</code>: sinh viên nộp bài (tạo file), không xóa bài của nhau; giáo viên chỉ đọc</li>
+      <li><b>u1</b> không làm được gì</li>
+    </ol>
+  </div>
+  <aside class="notes">Lab phỏng theo "Lab_On_Tap_Chmod_Permission" trong ghi chú gốc, bổ sung ACL mặc định để giải quyết vấn đề g1 chmod 600 làm g2 không đọc được.</aside>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab tổng hợp · Lời giải</p>
+  <h2>Lời giải tham khảo</h2>
+  <details class="answer"><summary>Hiện lời giải</summary>
+  <pre class="term tight">
+# groupadd giaovien ; groupadd sinhvien      # bỏ qua nếu đã có
+# for u in g1 g2 g3; do id $u &amp;&gt;/dev/null &amp;&amp; usermod -g giaovien $u || useradd -g giaovien $u; done
+# for u in s1 s2; do useradd -g sinhvien $u; done
+# mkdir -p /data/{giao_vien,sinh_vien}
+# echo "bai giang" &gt; /data/giao_vien/bai-giang.txt ; echo "tai lieu" &gt; /data/sinh_vien/tai-lieu.txt
+# chmod 750 /data /data/giao_vien /data/sinh_vien
+## Yêu cầu 1 &amp; 2
+# setfacl -m g:giaovien:r-x,g:sinhvien:--x /data
+# setfacl -m g:giaovien:r-x /data/sinh_vien
+## Yêu cầu 3 &amp; 4
+# setfacl -m g:giaovien:rwx /data/giao_vien
+# setfacl -d -m g:giaovien:rwx /data/giao_vien
+# chmod +t /data/giao_vien
+## Yêu cầu 5
+# setfacl -m g:sinhvien:rwx /data/sinh_vien
+# setfacl -d -m g:giaovien:r-x /data/sinh_vien
+# chmod +t /data/sinh_vien
+# getfacl -R /data &gt; /root/data-acl.bak</pre></details>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab tổng hợp · Kiểm tra</p>
+  <h2>Bảng kiểm tra kết quả</h2>
+  <table class="grid small">
+    <tr><th>Thao tác</th><th>g1</th><th>s1</th><th>u1</th><th>Lệnh thử</th></tr>
+    <tr><td>Xem danh sách trong /data</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td><td><code>ls /data</code></td></tr>
+    <tr><td>Vào /data/sinh_vien</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">✗</td><td><code>cd /data/sinh_vien</code></td></tr>
+    <tr><td>Vào /data/giao_vien</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td><td><code>cd /data/giao_vien</code></td></tr>
+    <tr><td>Tạo file trong giao_vien</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td><td><code>touch /data/giao_vien/g1.txt</code></td></tr>
+    <tr><td>g2 sửa nội dung file của g1</td><td colspan="3" class="yes">✓ (g2)</td><td><code>echo them &gt;&gt; …/g1.txt</code></td></tr>
+    <tr><td>g2 xóa file của g1</td><td colspan="3" class="no">✗ (sticky)</td><td><code>rm …/g1.txt</code></td></tr>
+    <tr><td>Nộp bài trong sinh_vien</td><td class="no">✗</td><td class="yes">✓</td><td class="no">✗</td><td><code>echo bai &gt; /data/sinh_vien/s1.txt</code></td></tr>
+    <tr><td>s2 xóa bài của s1</td><td colspan="3" class="no">✗ (sticky)</td><td><code>rm /data/sinh_vien/s1.txt</code></td></tr>
+    <tr><td>Đọc bài của s1</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">✗</td><td><code>cat /data/sinh_vien/s1.txt</code></td></tr>
+  </table>
+  <div class="callout tip"><span class="lbl">Nhanh hơn</span>Root kiểm tra hộ: <code>su - g1 -c 'ls /data'</code>, <code>su - s1 -c 'ls /data'</code>…</div>
+</section>
+
+<section class="slide">
+  <p class="kicker ex">Bài tập</p>
+  <h2>Luyện tập</h2>
+  <ol class="ex small">
+    <li><code>-rwSr--r--</code> nghĩa là gì? Có vấn đề gì không?
+      <details class="answer"><summary>Đáp án</summary>Đặt SUID nhưng chủ không có x → SUID vô tác dụng, thường là cấu hình sai.</details></li>
+    <li>Tạo thư mục <code>/phongban/ketoan</code> cho nhóm ketoan: file mới tự thuộc nhóm ketoan, thành viên không xóa file của nhau, người ngoài không vào được.
+      <details class="answer"><summary>Đáp án</summary><code>mkdir -p /phongban/ketoan; chgrp ketoan /phongban/ketoan; chmod 3770 /phongban/ketoan</code></details></li>
+    <li>Cho riêng user <code>kiemtoan</code> quyền đọc toàn bộ <code>/phongban/ketoan</code> (cả file tạo sau này).
+      <details class="answer"><summary>Đáp án</summary><code>setfacl -R -m u:kiemtoan:rX /phongban/ketoan; setfacl -d -m u:kiemtoan:rX /phongban/ketoan</code></details></li>
+    <li>Liệt kê mọi file SGID trên hệ thống.
+      <details class="answer"><summary>Đáp án</summary><code>find / -perm -2000 -type f 2&gt;/dev/null</code></details></li>
+    <li>Dấu <code>+</code> cuối chuỗi quyền <code>drwxr-x---+</code> báo hiệu gì? Xem chi tiết bằng lệnh nào?
+      <details class="answer"><summary>Đáp án</summary>Có ACL mở rộng. Xem bằng <code>getfacl</code>.</details></li>
+  </ol>
+</section>
+
+<section class="slide" data-title="Trắc nghiệm nhanh">
+  <p class="kicker ex">Trắc nghiệm nhanh · 5 phút</p>
+  <h2>Kiểm tra trước khi về</h2>
+  <ol class="ex small">
+    <li><code>-rwsr-xr-x root /usr/bin/passwd</code> – chữ <b>s</b> nghĩa là gì?
+      <details class="answer"><summary>Đáp án</summary>SUID: chương trình chạy với quyền của chủ file (root).</details></li>
+    <li><code>chmod 2770 /phongban</code> đặt những gì?
+      <details class="answer"><summary>Đáp án</summary>SGID + rwxrwx---: file mới trong thư mục mang nhóm của thư mục.</details></li>
+    <li>Liệt kê mọi file SUID trên hệ thống?
+      <details class="answer"><summary>Đáp án</summary><code>find / -perm -4000 -type f 2&gt;/dev/null</code></details></li>
+  </ol>
+  <div class="chips"><a class="btn" href="quiz.html?b=10">Làm đủ 9 câu của buổi 10 →</a><a class="btn ghost" href="quiz.html?obj=104.5">Luyện mục tiêu 104.5</a></div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Tổng kết</p>
+  <h2>Bảng lệnh buổi 10 &amp; bài về nhà</h2>
+  <div class="cols">
+    <table class="cheat small">
+      <tr><td>chmod u+s · 4xxx</td><td>SUID</td></tr>
+      <tr><td>chmod g+s · 2xxx</td><td>SGID (thư mục: kế thừa nhóm)</td></tr>
+      <tr><td>chmod o+t · 1xxx</td><td>Sticky (chỉ chủ được xóa)</td></tr>
+      <tr><td>find / -perm -4000</td><td>Rà soát SUID</td></tr>
+      <tr><td>getfacl</td><td>Xem ACL</td></tr>
+      <tr><td>setfacl -m -x -b -R</td><td>Sửa / gỡ ACL</td></tr>
+      <tr><td>setfacl -d -m</td><td>ACL mặc định</td></tr>
+    </table>
+    <div class="stack">
+      <h3>Bài về nhà</h3>
+      <ol class="small">
+        <li>Khôi phục ACL của <code>/data</code> từ file sao lưu sau khi cố tình <code>setfacl -R -b /data</code></li>
+        <li>Snapshot <b>10-permissions</b></li>
+      </ol>
+      <div class="callout info"><span class="lbl">Buổi 11</span>Ổ đĩa: <code>fdisk</code>, <code>mkfs</code>, <code>mount</code>, <code>/etc/fstab</code>, mount ISO, mount bind, quota. Chuẩn bị: thêm 1 ổ 10 GB vào VM.</div>
+    </div>
+  </div>
+</section>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

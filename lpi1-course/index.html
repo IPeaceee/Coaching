@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lộ trình Linux LPI-1</title>
+<link rel="stylesheet" href="assets/deck.css">
+</head>
+<body class="page">
+<div class="page-wrap">
+
+  <header class="hero">
+    <button class="theme-btn" type="button" data-toggle-theme>Sáng / tối</button>
+    <p class="kicker">Khóa học Linux LPI-1 · dành cho người mới bắt đầu</p>
+    <h1>Lộ trình 14 buổi: từ dòng lệnh đầu tiên đến quản trị server</h1>
+    <p>Mỗi buổi khoảng 3 giờ, gồm lý thuyết ngắn, ví dụ chạy được ngay, lab có hướng dẫn từng bước, bài tập có đáp án ẩn, trắc nghiệm cuối buổi và bài về nhà. Nội dung xây dựng từ bộ ghi chú <i>Note LPI-I</i> (Bài 1–13), đối chiếu với đề cương <b>LPIC-1 v5.0 (101-500)</b> và cập nhật sang <b>Rocky Linux 9</b> và <b>Ubuntu 24.04</b>.</p>
+    <div class="chips" style="margin-top:14px">
+      <span class="chip a">14 buổi × ~3 giờ</span>
+      <span class="chip">25+ bài lab</span>
+      <span class="chip">~200 câu trắc nghiệm</span>
+      <span class="chip lpi">Phủ 22/22 mục tiêu bài 101</span>
+      <span class="chip">Slide HTML, chạy offline</span>
+    </div>
+    <div class="chips" style="margin-top:16px">
+      <a class="btn" href="buoi-01.html">Bắt đầu buổi 01 →</a>
+      <a class="btn ghost" href="quiz.html?mode=exam">Thi thử LPI-101 (60 câu · 90 phút)</a>
+    </div>
+  </header>
+
+  <p class="section-title">Dự án xuyên suốt: server1 của Công ty ABC</p>
+  <div class="card" style="font-size:15.5px;line-height:1.65">
+    <p>Học viên đóng vai quản trị viên mới của Công ty ABC (phòng kế toán, nhân sự, kỹ thuật). Mỗi buổi thêm một mảnh vào cùng một máy chủ và dùng lại kết quả của buổi trước, nên kiến thức nối thành một câu chuyện thay vì các bài rời rạc. Đầu mỗi buổi có slide <b>“Hành trình”</b> ghi rõ: dùng lại gì từ trước, hôm nay thêm gì, buổi sau dùng tiếp ra sao.</p>
+    <div class="table-scroll" style="margin-top:10px">
+      <table>
+        <tr><th>Buổi</th><th>server1 có thêm</th><th>Được dùng lại ở</th></tr>
+        <tr><td>1</td><td>Máy Rocky 9, phân vùng /boot · swap · / · /home</td><td>B11 (thêm ổ), B14 (/boot, GRUB)</td></tr>
+        <tr><td>2–3</td><td>Hồ sơ phần cứng, <code>~/congty</code>, alias, PATH <code>~/scripts</code></td><td>B6 (tar), B8–10 (thư mục dùng chung), B13 (script)</td></tr>
+        <tr><td>4–5</td><td>Sửa cấu hình an toàn; báo cáo user, lọc log</td><td>B8 visudo, B11 fstab, B12–13 sshd_config, crontab</td></tr>
+        <tr><td>6–7</td><td>Bản sao lưu /etc đầu tiên; httpd, công cụ, chương trình trong /opt</td><td>B9 (/srv/webapp), B12 (dịch vụ), B13 (cron)</td></tr>
+        <tr><td>8–10</td><td>Tài khoản 3 phòng ban, phân quyền, thư mục chung /data</td><td>B11 (ổ riêng), B13 (AllowUsers), đề thi câu 4</td></tr>
+        <tr><td>11</td><td>Ổ thứ 3: /data-hdd, /archive; /public chỉ đọc</td><td>B13 (lưu backup), đề thi câu 5</td></tr>
+        <tr><td>12</td><td>IP tĩnh + IP phụ, dịch vụ tự chạy, firewall, clone server2</td><td>B13 (2 máy), đề thi câu 1–2</td></tr>
+        <tr><td>13</td><td>SSH bằng khóa, backup /home sang server2 mỗi 5 phút</td><td>B14 (khôi phục)</td></tr>
+        <tr><td>14</td><td>Khôi phục khi sự cố, thi thử thực hành + trắc nghiệm</td><td>Thi chứng chỉ LPIC-1</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <p class="section-title">Thông tin khóa học</p>
+  <div class="info-grid">
+    <div class="card"><h3>Đối tượng</h3>Người chưa từng dùng Linux; biết dùng máy tính Windows cơ bản. Không cần biết lập trình.</div>
+    <div class="card"><h3>Môi trường lab</h3>VMware Workstation hoặc VirtualBox. VM1: Rocky Linux 9 Minimal (2 CPU, 2 GB RAM, ổ 20 GB + 10 GB). VM2 clone từ buổi 12. Ubuntu 24.04 để đối chiếu và thử Btrfs.</div>
+    <div class="card"><h3>Cấu trúc 1 buổi</h3>10′ hành trình &amp; ôn bài · 60′ lý thuyết + demo · 75′ lab · 15′ bài tập · 10′ trắc nghiệm nhanh &amp; tổng kết.</div>
+    <div class="card"><h3>Đánh giá</h3>Lab mỗi buổi (30%) · trắc nghiệm theo buổi (20%) · thi thực hành buổi 14 theo đề kết thúc môn (30%) · thi thử trắc nghiệm LPI-101 (20%).</div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-h"><b>Giai đoạn 1 — Nền tảng dòng lệnh</b><span>Buổi 1–5</span></div>
+    <div class="sessions">
+      <a class="session" href="buoi-01.html"><span class="n">01</span><div><h3>Tổng quan Linux &amp; cài đặt</h3><p>Kernel và distro, cây thư mục, tên ổ đĩa, MBR/GPT, ESP, swap, LVM, cài Rocky 9.</p><span class="lab">LPI 102.1 · 104.7 — Lab: cài Rocky với phân vùng tự chọn</span></div></a>
+      <a class="session" href="buoi-02.html"><span class="n">02</span><div><h3>Làm quen dòng lệnh</h3><p>Shell, cấu trúc lệnh, dấu nháy, biến &amp; export, đường dẫn, man, which/locate, /proc · /sys · udev.</p><span class="lab">LPI 103.1 · 101.1 · 104.7 — Lab: hồ sơ server1</span></div></a>
+      <a class="session" href="buoi-03.html"><span class="n">03</span><div><h3>Quản lý file, thư mục &amp; tùy biến shell</h3><p>touch · mkdir -p · cp · mv · rm · wildcard · find · file · hard/sym link · FHS · alias · history · PATH.</p><span class="lab">LPI 103.3 · 103.1 · 104.6 · 104.7 — Lab: cây thư mục công ty</span></div></a>
+      <a class="session" href="buoi-04.html"><span class="n">04</span><div><h3>vi/vim, nano, emacs &amp; sed</h3><p>Ba chế độ của vim, di chuyển, xóa/copy/dán, tìm &amp; thay thế, EDITOR, sed -i.</p><span class="lab">LPI 103.8 — Lab: sửa file cấu hình an toàn</span></div></a>
+      <a class="session" href="buoi-05.html"><span class="n">05</span><div><h3>Pipe, grep, regex &amp; bộ lọc</h3><p>Chuyển hướng, pipe, here-doc, tee, xargs, nl · tr · paste · split · od · checksum, BRE/ERE, sed nâng cao.</p><span class="lab">LPI 103.4 · 103.2 · 103.7 — Lab: phân tích user &amp; log</span></div></a>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-h"><b>Giai đoạn 2 — Quản trị hệ thống cơ bản</b><span>Buổi 6–8</span></div>
+    <div class="sessions">
+      <a class="session" href="buoi-06.html"><span class="n">06</span><div><h3>Tiến trình, độ ưu tiên &amp; nén file</h3><p>ps · top · kill · jobs · nice/renice · watch · tmux/screen · free · df · tar · cpio · dd.</p><span class="lab">LPI 103.5 · 103.6 · 103.3 — Lab: tiến trình “ăn” CPU, sao lưu /etc</span></div></a>
+      <a class="session" href="buoi-07.html"><span class="n">07</span><div><h3>Cài đặt &amp; quản lý phần mềm</h3><p>rpm (-V, -K, rpm2cpio) · dnf/yum · zypper · dpkg · apt · thư viện chia sẻ ldd/ldconfig · biên dịch từ nguồn.</p><span class="lab">LPI 102.5 · 102.4 · 102.3 — Lab: web server, GNU hello</span></div></a>
+      <a class="session" href="buoi-08.html"><span class="n">08</span><div><h3>Người dùng, nhóm &amp; sudo</h3><p>/etc/passwd · shadow · group · useradd · usermod -aG · /etc/skel · chage · pwquality · su · sudo · visudo.</p><span class="lab">LPI 107.1 · 110.1 (bài 102) — Lab: tài khoản công ty</span></div></a>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-h"><b>Giai đoạn 3 — Phân quyền &amp; lưu trữ</b><span>Buổi 9–11</span></div>
+    <div class="sessions">
+      <a class="session" href="buoi-09.html"><span class="n">09</span><div><h3>Phân quyền file &amp; thư mục</h3><p>rwx trên file vs thư mục, bát phân, chmod · chown · chgrp · umask, find + chmod có chọn lọc.</p><span class="lab">LPI 104.5 — Lab: thí nghiệm 750/751/753/755/777</span></div></a>
+      <a class="session" href="buoi-10.html"><span class="n">10</span><div><h3>Quyền đặc biệt &amp; ACL</h3><p>SUID · SGID · sticky bit · rà soát SUID · setfacl/getfacl · mask · ACL mặc định.</p><span class="lab">LPI 104.5 (ACL ngoài đề) — Lab: thư mục chung giáo viên – sinh viên</span></div></a>
+      <a class="session" href="buoi-11.html"><span class="n">11</span><div><h3>Ổ đĩa, filesystem &amp; mount</h3><p>fdisk · gdisk · parted · mkfs · Btrfs/exFAT · fsck/tune2fs/xfs_repair · fstab, nhãn, UUID · mount unit · bind ro · LVM.</p><span class="lab">LPI 104.1 · 104.2 · 104.3 · 102.1 — Lab: ổ mới, ổ ảo, bind chỉ đọc</span></div></a>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-h"><b>Giai đoạn 4 — Mạng, tự động hóa &amp; tổng kết</b><span>Buổi 12–14</span></div>
+    <div class="sessions">
+      <a class="session" href="buoi-12.html"><span class="n">12</span><div><h3>Mạng, dịch vụ &amp; ảo hóa</h3><p>ip · nmcli · netplan · IP phụ · DNS · systemctl · target · wall/shutdown · unit file · VM/container · clone đúng cách.</p><span class="lab">LPI 101.3 · 102.6 · 109.2 — Lab: IP tĩnh + IP phụ (câu 1–2 đề thi)</span></div></a>
+      <a class="session" href="buoi-13.html"><span class="n">13</span><div><h3>SSH, rsync, crontab &amp; script</h3><p>sshd_config · scp · ssh-keygen · rsync --delete · script bash · cron · at · systemd timer.</p><span class="lab">LPI 110.3 · 107.2 · 105.2 (bài 102) — Lab: backup 2 máy mỗi 5 phút</span></div></a>
+      <a class="session" href="buoi-14.html"><span class="n">14</span><div><h3>Khởi động, khôi phục &amp; thi thử</h3><p>BIOS/UEFI → GRUB → kernel → systemd · GRUB Legacy vs GRUB 2 · dmesg · rd.break · đề kết thúc môn.</p><span class="lab">LPI 101.2 · 102.2 — Thi thử thực hành + trắc nghiệm</span></div></a>
+    </div>
+  </div>
+
+  <p class="section-title">Trắc nghiệm</p>
+  <div class="card" style="font-size:15.5px;line-height:1.65">
+    <p>Ngân hàng khoảng 200 câu gồm trắc nghiệm một đáp án, chọn nhiều và điền lệnh – đúng các dạng câu của đề LPIC-1. Mỗi câu ghi rõ buổi học và mã mục tiêu LPI để học viên biết cần ôn lại ở đâu. Chế độ <b>thi thử LPI-101</b> lấy số câu mỗi mục tiêu đúng bằng trọng số của mục tiêu đó (tổng 60 câu, 90 phút).</p>
+    <div class="chips" style="margin-top:10px">
+      <a class="btn" href="quiz.html?mode=exam">Thi thử LPI-101</a>
+      <a class="btn ghost" href="quiz.html?b=1">Theo buổi</a>
+      <a class="btn ghost" href="quiz.html?obj=103.1">Theo mục tiêu LPI</a>
+      <a class="btn ghost" href="quiz.html?mode=all">Tất cả câu</a>
+    </div>
+  </div>
+
+  <p class="section-title">Độ phủ đề LPIC-1 bài 101 (v5.0)</p>
+  <div class="table-scroll">
+    <table>
+      <tr><th>Mục tiêu</th><th>Trọng số</th><th>Buổi</th><th>Mục tiêu</th><th>Trọng số</th><th>Buổi</th></tr>
+      <tr><td>101.1 Phần cứng</td><td>2</td><td>2</td><td>103.4 Luồng, pipe</td><td>4</td><td>5</td></tr>
+      <tr><td>101.2 Khởi động</td><td>3</td><td>14</td><td>103.5 Tiến trình</td><td>4</td><td>6</td></tr>
+      <tr><td>101.3 Target, tắt máy</td><td>3</td><td>1, 12</td><td>103.6 Độ ưu tiên</td><td>2</td><td>6</td></tr>
+      <tr><td>102.1 Bố cục đĩa</td><td>2</td><td>1, 11</td><td>103.7 Regex</td><td>3</td><td>4, 5</td></tr>
+      <tr><td>102.2 Bootloader</td><td>2</td><td>14</td><td>103.8 vi</td><td>3</td><td>4</td></tr>
+      <tr><td>102.3 Thư viện chia sẻ</td><td>1</td><td>7</td><td>104.1 Phân vùng, FS</td><td>2</td><td>1, 11</td></tr>
+      <tr><td>102.4 Gói Debian</td><td>3</td><td>7</td><td>104.2 Toàn vẹn FS</td><td>2</td><td>11</td></tr>
+      <tr><td>102.5 RPM, YUM, zypper</td><td>3</td><td>7</td><td>104.3 Mount</td><td>3</td><td>11</td></tr>
+      <tr><td>102.6 Ảo hóa</td><td>1</td><td>12</td><td>104.5 Quyền</td><td>3</td><td>9, 10</td></tr>
+      <tr><td>103.1 Dòng lệnh</td><td>4</td><td>2, 3</td><td>104.6 Link</td><td>2</td><td>3</td></tr>
+      <tr><td>103.2 Bộ lọc</td><td>2</td><td>5</td><td>104.7 FHS, tìm file</td><td>2</td><td>1, 2, 3</td></tr>
+      <tr><td>103.3 Quản lý file</td><td>4</td><td>3, 6</td><td colspan="3" class="muted">Quota (104.4 cũ) đã bỏ khỏi đề v5 – giữ ở B11 như phần mở rộng</td></tr>
+    </table>
+  </div>
+  <p class="muted" style="font-size:14px;margin-top:8px">Phần không có trong đề LPIC-1 nhưng giữ lại vì cần cho công việc (ACL, SELinux, firewalld, rsync, CIFS, quota) được gắn nhãn <span class="out-tag">ngoài đề</span> trên slide. Buổi 8 và 13 thuộc bài thi 102.</p>
+
+  <p class="section-title">Đề thi kết thúc môn được luyện ở đâu</p>
+  <div class="table-scroll">
+    <table>
+      <tr><th>Câu trong đề</th><th>Nội dung</th><th>Học ở</th><th>Luyện trong lab</th></tr>
+      <tr><td>Câu 1</td><td>IP tĩnh, gateway, DNS, kiểm tra Internet</td><td>Buổi 12</td><td>Lab A buổi 12</td></tr>
+      <tr><td>Câu 2</td><td>IP phụ trên cùng card mạng</td><td>Buổi 12</td><td>Lab A buổi 12</td></tr>
+      <tr><td>Câu 3</td><td>wget, useradd, mkdir, giải nén tar</td><td>Buổi 3, 6, 7, 8</td><td>Lab buổi 3, Lab B buổi 6, Lab C buổi 7</td></tr>
+      <tr><td>Câu 4</td><td>chown -R, chmod 750, ACL riêng cho 1 user</td><td>Buổi 9, 10</td><td>Lab A–C buổi 9, lab tổng hợp buổi 10</td></tr>
+      <tr><td>Câu 5</td><td>Mount bind chỉ đọc, bền vững qua fstab</td><td>Buổi 11</td><td>Lab B buổi 11</td></tr>
+    </table>
+  </div>
+
+  <p class="section-title">Đối chiếu với bộ ghi chú gốc</p>
+  <div class="table-scroll">
+    <table>
+      <tr><th>Ghi chú gốc</th><th>Buổi</th><th>Cách xử lý</th></tr>
+      <tr><td>Bài 1 – Các cách cài Linux, sửa GRUB</td><td>1, 14</td><td>Giữ phân vùng basic/LVM/RAID; cài qua FTP lược bỏ; sửa GRUB chuyển sang buổi 14</td></tr>
+      <tr><td>Bài 2 – Lệnh cơ bản phần 1–4, vi, grep</td><td>2–6, 12</td><td>Chia nhỏ theo chủ đề; ifconfig/route/netstat đối chiếu với ip/ss</td></tr>
+      <tr><td>Bài 3 – Recovery password, inittab</td><td>12, 14</td><td>Thêm rd.break (Rocky) và init=/bin/bash (Ubuntu); inittab giữ như kiến thức SysVinit</td></tr>
+      <tr><td>Bài 4 – rpm, yum, apt, từ mã nguồn, Webmin, Apache</td><td>7</td><td>yum → dnf; thêm zypper, rpm -V/-K, thư viện chia sẻ; Apache/Webmin làm bài mở rộng</td></tr>
+      <tr><td>Bài 5 – User &amp; group; Bài 2 phần 3 – visudo, PATH</td><td>8, 2, 3</td><td>pam_cracklib → pwquality; cảnh báo về “!” trong sudoers</td></tr>
+      <tr><td>Bài 6, 6.1–6.7, các lab chmod/ACL ôn tập</td><td>9, 10</td><td>Gom thành bảng thí nghiệm quyền + lab tổng hợp /data</td></tr>
+      <tr><td>Bài 7, 7.1–7.4 – mount, fdisk, bind, ISO, CIFS; Bài 9 – quota</td><td>11</td><td>Thêm gdisk/parted, Btrfs, fsck, nhãn; quota đánh dấu ngoài đề v5</td></tr>
+      <tr><td>Bài 8, 8.1 – SSH, chkconfig, dịch vụ; SSH PKI</td><td>12, 13</td><td>init.d/chkconfig → systemctl; iptables → firewalld + SELinux port</td></tr>
+      <tr><td>Bài 10, 11, 11.1 – rsync, crontab, script backup</td><td>13</td><td>Sửa shebang, quyền .ssh 700/600; lab 2 máy giữ nguyên ý tưởng</td></tr>
+      <tr><td>Bài 12 – Biên dịch kernel (grub.conf)</td><td>14</td><td>Dùng làm ví dụ GRUB Legacy; biên dịch kernel chỉ giới thiệu</td></tr>
+      <tr><td>Bài 8 – VNC CentOS 5/6; Bài 13 – Wine/CrossOver</td><td>—</td><td>Bỏ: công cụ đã lỗi thời; ghi chú CrossOver dùng bản crack nên không đưa vào giáo trình</td></tr>
+    </table>
+  </div>
+
+  <p class="section-title">Cách trình chiếu</p>
+  <div class="card" style="font-size:15px;line-height:1.7">
+    <div class="keys">
+      <span><kbd>→</kbd> / <kbd>Space</kbd> slide sau</span>
+      <span><kbd>←</kbd> slide trước</span>
+      <span><kbd>F</kbd> toàn màn hình</span>
+      <span><kbd>M</kbd> danh sách slide</span>
+      <span><kbd>N</kbd> ghi chú giảng viên</span>
+      <span><kbd>A</kbd> mở/đóng đáp án</span>
+      <span><kbd>D</kbd> sáng/tối</span>
+      <span><kbd>Ctrl</kbd>+<kbd>P</kbd> xuất PDF (1 slide/trang)</span>
+    </div>
+    <p class="muted" style="margin-top:8px">Rê chuột vào khối lệnh để hiện nút <b>Copy</b> (chỉ chép phần lệnh). Địa chỉ dạng <code>buoi-05.html#8</code> mở thẳng slide số 8. Không cần Internet.</p>
+  </div>
+
+  <p class="section-title">Nếu chỉ có 12 buổi</p>
+  <div class="card" style="font-size:15px;line-height:1.7">
+    <ul>
+      <li>Gộp <b>buổi 4</b> vào buổi 3 và 5: dạy vim 30 phút cuối buổi 3, giao <code>vimtutor</code> về nhà, phần <code>sed</code> chuyển sang buổi 5.</li>
+      <li>Tách <b>buổi 6</b>: tiến trình và nice vào buổi 5, tar/cpio/dd vào đầu buổi 7.</li>
+      <li>Phần gắn nhãn <span class="out-tag">ngoài đề</span> (quota, CIFS, SELinux port, ACL nâng cao) chuyển thành tự học.</li>
+    </ul>
+  </div>
+
+  <p class="page-foot">Nguồn nội dung: bộ ghi chú “Note LPI-I” (Athena) và đề cương LPIC-1 v5.0 (Learning Materials 101-500). Phiên bản slide: Rocky Linux 9 / Ubuntu 24.04.</p>
+</div>
+<script src="assets/deck.js"></script>
+</body>
+</html>

@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LPI-1 · Buổi 14 — Khởi động, khôi phục &amp; thi thử</title>
+<link rel="stylesheet" href="assets/deck.css">
+</head>
+<body>
+
+<section class="slide title">
+  <div class="num">14</div>
+  <h1>Khởi động, khôi phục mật khẩu &amp; thi thử</h1>
+  <p class="sub">Quá trình boot, GRUB2, lấy lại mật khẩu root – sau đó ôn tập toàn khóa và làm đề thi kết thúc môn.</p>
+  <div class="chips"><span class="chip a">LPI-1 · Buổi 14/14</span><span class="chip lpi">101.2</span><span class="chip lpi">102.2</span><span class="chip">~3 giờ</span><span class="chip">Thi thử 90 phút</span></div>
+  <div class="prompt">switch_root:/# chroot /sysroot</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Mục tiêu buổi học</p>
+  <h2>Kế hoạch buổi cuối</h2>
+  <div class="cols">
+    <div class="stack">
+      <h3>Phần 1 · 60 phút</h3>
+      <ul class="small">
+        <li>Các giai đoạn khởi động: firmware → GRUB2 → kernel → systemd</li>
+        <li>GRUB Legacy và GRUB 2; tham số kernel, <code>dmesg</code></li>
+        <li>Khôi phục mật khẩu root trên Rocky 9 và Ubuntu</li>
+        <li>Đặt mật khẩu cho GRUB, cứu hộ bằng đĩa cài</li>
+      </ul>
+    </div>
+    <div class="stack">
+      <h3>Phần 2 · 120 phút</h3>
+      <ul class="small">
+        <li>Ôn tập nhanh 13 buổi (15 phút)</li>
+        <li><b>Thi thử</b> theo đề kết thúc môn LPI-I (90 phút)</li>
+        <li>Chữa bài, tự chấm bằng checklist (15 phút)</li>
+        <li>Về nhà: thi thử trắc nghiệm LPI-101, 60 câu trong 90 phút</li>
+      </ul>
+      <div class="callout warn"><span class="lbl">Snapshot!</span>Chụp snapshot <b>14-before-recovery</b> và <b>14-before-exam</b>.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-title="Hành trình">
+  <p class="kicker">Hành trình · server1 của Công ty ABC</p>
+  <h2>Buổi cuối: nối mọi mảnh lại với nhau</h2>
+  <div class="journey">
+    <div class="past"><h3>Dùng lại từ trước</h3><ul class="small"><li>B1: <code>/boot</code>, phân vùng; B11: fstab</li><li>B12: target rescue/emergency, journalctl</li><li>B4: sửa file chỉ với shell tối giản</li></ul></div>
+    <div class="now"><h3>Hôm nay</h3><ul class="small"><li>Hiểu server1 khởi động qua những bước nào</li><li>Lấy lại quyền root khi mất mật khẩu</li><li>Tự đánh giá: đề thực hành 90′ + trắc nghiệm LPI-101 60 câu</li></ul></div>
+    <div class="next"><h3>Sau khóa học</h3><ul class="small"><li>Thi LPIC-1 bài 101 và 102</li><li>RHCSA hoặc LPIC-2</li></ul></div>
+  </div>
+  <div class="objline">Mục tiêu LPI: <span class="chip lpi">101.2 Khởi động · 3đ</span><span class="chip lpi">102.2 Bootloader · 2đ</span></div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Quá trình khởi động</h2>
+  <div class="flow">
+    <div class="box blue">BIOS / UEFI<small>kiểm tra phần cứng, tìm thiết bị boot</small></div><div class="arrow">→</div>
+    <div class="box alt">GRUB2<small>menu chọn kernel, truyền tham số</small></div><div class="arrow">→</div>
+    <div class="box">Kernel + initramfs<small>nhận phần cứng, mount /</small></div><div class="arrow">→</div>
+    <div class="box alt">systemd (PID 1)<small>chạy dịch vụ tới default.target</small></div><div class="arrow">→</div>
+    <div class="box blue">Login<small>console / SSH</small></div>
+  </div>
+  <div class="cols">
+    <pre class="term tight">
+# ls /boot
+config-5.14.0-570.17.1.el9_6.x86_64
+efi
+grub2
+initramfs-5.14.0-570.17.1.el9_6.x86_64.img
+loader
+symvers-5.14.0-570.17.1.el9_6.x86_64.gz
+System.map-5.14.0-570.17.1.el9_6.x86_64
+vmlinuz-5.14.0-570.17.1.el9_6.x86_64</pre>
+    <table class="small">
+      <tr><td><code>vmlinuz-*</code></td><td>Kernel (nén)</td></tr>
+      <tr><td><code>initramfs-*.img</code></td><td>Hệ thống file tạm trong RAM, chứa driver cần để mount <code>/</code> (hệ cũ: <code>initrd</code>)</td></tr>
+      <tr><td><code>config-*</code></td><td>Cấu hình đã dùng để biên dịch kernel</td></tr>
+      <tr><td><code>grub2/</code></td><td>Cấu hình bootloader</td></tr>
+      <tr><td><code>dmesg</code>, <code>journalctl -b</code></td><td>Xem lại thông báo lúc boot</td></tr>
+    </table>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>GRUB2 và kernel</h2>
+  <div class="cols">
+    <div class="stack">
+      <pre class="file" data-file="/etc/default/grub (rút gọn)">GRUB_TIMEOUT=5
+GRUB_DEFAULT=saved
+GRUB_CMDLINE_LINUX="crashkernel=auto rhgb quiet"</pre>
+      <pre class="term">
+## Rocky / RHEL: tạo lại cấu hình sau khi sửa
+# grub2-mkconfig -o /boot/grub2/grub.cfg
+# grubby --default-kernel
+# grubby --info=ALL | grep ^kernel
+## Ubuntu
+$ sudo update-grub</pre>
+    </div>
+    <div class="stack small">
+      <pre class="term">
+$ uname -r                 # kernel đang chạy
+$ lsmod | head -3          # module đã nạp
+# modinfo e1000            # thông tin 1 module
+# modprobe -r b43 ; modprobe b43   # gỡ / nạp driver</pre>
+      <div class="callout legacy"><span class="lbl">Ghi chú gốc</span>GRUB cũ sửa trực tiếp <code>/boot/grub/grub.conf</code> hoặc <code>menu.lst</code>. GRUB2: sửa <code>/etc/default/grub</code> rồi <b>sinh lại</b> file. Biên dịch kernel (Bài 12) là nội dung nâng cao, ngoài phạm vi khóa này – thường chỉ cần <code>dnf update kernel</code>.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết · LPI 102.2 — vẫn có trong đề</p>
+  <h2>GRUB Legacy — file cấu hình viết tay</h2>
+  <pre class="file" data-file="/boot/grub/menu.lst (Debian) · /boot/grub/grub.conf (Red Hat)"># mục mặc định, đếm từ 0; mục 0 lỗi thì thử mục 1
+default=0
+fallback=1
+timeout=5
+# (hd0,0) = ổ thứ nhất, phân vùng thứ nhất = /dev/sda1
+title CentOS (2.6.32-504.el6.x86_64)
+        root (hd0,0)
+        kernel /vmlinuz-2.6.32-504.el6.x86_64 ro root=/dev/mapper/vg-lv_root rhgb quiet
+        initrd /initramfs-2.6.32-504.el6.x86_64.img</pre>
+  <div class="cols">
+    <pre class="term tight">
+# grub-install /dev/sda       # cài GRUB vào MBR của ổ sda
+## trong grub shell (Legacy):
+grub&gt; root (hd0,0)
+grub&gt; setup (hd0)</pre>
+    <div class="callout legacy"><span class="lbl">Ghi chú gốc</span>Bài 12 của ghi chú sửa <code>/boot/grub/grub.conf</code> thêm khối <code>title/root/kernel/initrd</code> – chính là GRUB Legacy trên CentOS 5/6.</div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết · LPI 102.2</p>
+  <h2>GRUB Legacy so với GRUB 2</h2>
+  <div class="cols w6">
+    <table class="small">
+      <tr><th></th><th>GRUB Legacy</th><th>GRUB 2</th></tr>
+      <tr><td>File cấu hình</td><td>Sửa tay <code>menu.lst</code> / <code>grub.conf</code></td><td>Sửa <code>/etc/default/grub</code>, <code>/etc/grub.d/40_custom</code> → sinh <code>grub.cfg</code></td></tr>
+      <tr><td>Sinh cấu hình</td><td>—</td><td><code>grub-mkconfig -o /boot/grub/grub.cfg</code> (= <code>update-grub</code>); Rocky: <code>grub2-mkconfig -o /boot/grub2/grub.cfg</code></td></tr>
+      <tr><td>Đánh số /dev/sda1</td><td><code>(hd0,0)</code> – phân vùng đếm từ 0</td><td><code>(hd0,msdos1)</code> / <code>(hd0,gpt1)</code> – đếm từ 1</td></tr>
+      <tr><td>Mục mặc định</td><td><code>default=0</code>, dự phòng <code>fallback=1</code></td><td><code>GRUB_DEFAULT=0</code> hoặc <code>saved</code>; khởi động 1 lần: <code>grub-reboot</code></td></tr>
+      <tr><td>Khi boot</td><td><kbd>e</kbd> sửa, <kbd>c</kbd> dòng lệnh, <kbd>b</kbd> boot</td><td><kbd>e</kbd> sửa, <kbd>c</kbd> dòng lệnh, <kbd>Ctrl</kbd>+<kbd>X</kbd> boot</td></tr>
+    </table>
+    <div class="stack small">
+      <div class="callout tip"><span class="lbl">Mẹo nhớ cho đề thi</span>Legacy đếm phân vùng từ <b>0</b>, GRUB 2 đếm từ <b>1</b>; cả hai đếm ổ từ 0.</div>
+      <div class="callout warn"><span class="lbl">Đừng sửa grub.cfg bằng tay</span>Lần chạy <code>grub-mkconfig</code> sau sẽ ghi đè. Mục menu riêng đặt trong <code>/etc/grub.d/40_custom</code>.</div>
+      <div class="callout link"><span class="lbl">Liên kết</span>B1: <code>/boot</code> và ESP · B11: <code>/dev/sda1</code>, UUID – GRUB dùng để tìm kernel.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ · LPI 101.2</p>
+  <h2>Tham số kernel và nhật ký khởi động</h2>
+  <div class="cols">
+    <div class="stack small">
+      <pre class="term tight">
+$ cat /proc/cmdline
+BOOT_IMAGE=(hd0,msdos1)/vmlinuz-5.14.0-570.17.1.el9_6.x86_64 root=UUID=2b7c… ro crashkernel=1G-4G:192M rhgb quiet
+$ dmesg | less                   # thông báo kernel từ lúc boot
+$ dmesg -T | grep -i -E 'error|fail'
+$ journalctl -k                  # như dmesg, qua journald
+$ journalctl -b                  # lần boot hiện tại
+$ journalctl -b -1               # lần boot trước
+# mkdir -p /var/log/journal ; systemctl restart systemd-journald</pre>
+      <p class="muted">Lệnh cuối làm journal lưu bền qua reboot, để <code>-b -1</code> có dữ liệu.</p>
+    </div>
+    <table class="small">
+      <tr><th>Tham số thêm vào dòng kernel</th><th>Tác dụng</th></tr>
+      <tr><td><code>single</code>, <code>1</code>, <code>systemd.unit=rescue.target</code></td><td>Chế độ một người dùng</td></tr>
+      <tr><td><code>systemd.unit=emergency.target</code></td><td>Tối giản nhất, <code>/</code> chỉ đọc</td></tr>
+      <tr><td><code>rd.break</code></td><td>Dừng trong initramfs (Rocky – lấy lại mật khẩu)</td></tr>
+      <tr><td><code>init=/bin/bash</code></td><td>Thay init bằng shell (Ubuntu – lấy lại mật khẩu)</td></tr>
+      <tr><td><code>quiet</code> / bỏ <code>rhgb quiet</code></td><td>Ẩn / hiện chi tiết thông báo khi boot</td></tr>
+      <tr><td><code>ro</code> · <code>rw</code></td><td>Mount <code>/</code> chỉ đọc / đọc-ghi lúc đầu</td></tr>
+    </table>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Khôi phục mật khẩu root — Rocky Linux 9</h2>
+  <div class="cols w6">
+    <ol class="steps small">
+      <li>Khởi động lại, tại menu GRUB bấm <kbd>e</kbd> trên dòng kernel đầu tiên</li>
+      <li>Tìm dòng bắt đầu bằng <code>linux</code>, thêm vào <b>cuối dòng</b>: <code>rd.break</code></li>
+      <li>Bấm <kbd>Ctrl</kbd>+<kbd>X</kbd> để boot → vào shell <code>switch_root:/#</code></li>
+      <li>Gõ các lệnh bên phải</li>
+      <li><code>exit</code> hai lần → máy tự khởi động tiếp (relabel SELinux mất 1–2 phút)</li>
+    </ol>
+    <pre class="term">
+switch_root:/# mount -o remount,rw /sysroot
+switch_root:/# chroot /sysroot
+sh-5.1# passwd root
+New password:
+Retype new password:
+sh-5.1# touch /.autorelabel
+sh-5.1# exit
+switch_root:/# exit</pre>
+  </div>
+  <div class="cols">
+    <div class="callout warn"><span class="lbl">Đừng quên /.autorelabel</span>Thiếu bước này, SELinux thấy <code>/etc/shadow</code> sai nhãn → không ai đăng nhập được.</div>
+    <div class="callout legacy"><span class="lbl">Ghi chú gốc (CentOS 5/6)</span>Thêm <code>single</code> (hoặc <code>1</code>, <code>-s</code>) cuối dòng kernel → vào thẳng root shell → <code>passwd</code>.</div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Khôi phục mật khẩu — Ubuntu</h2>
+  <div class="cols">
+    <div class="stack small">
+      <h3>Cách 1: sửa tham số kernel</h3>
+      <ol>
+        <li>Giữ <kbd>Shift</kbd> (BIOS) hoặc bấm <kbd>Esc</kbd> (UEFI) khi boot để hiện GRUB</li>
+        <li><kbd>e</kbd> → dòng <code>linux …</code>: thay <code>ro quiet splash</code> bằng <code>rw init=/bin/bash</code></li>
+        <li><kbd>Ctrl</kbd>+<kbd>X</kbd> → có root shell</li>
+      </ol>
+      <pre class="term">
+root@(none):/# passwd nhanle
+root@(none):/# sync
+root@(none):/# exec /sbin/init</pre>
+    </div>
+    <div class="stack small">
+      <h3>Cách 2: Recovery mode</h3>
+      <ol>
+        <li>GRUB → <b>Advanced options for Ubuntu</b> → dòng <b>(recovery mode)</b></li>
+        <li>Chọn <b>root — Drop to root shell prompt</b></li>
+      </ol>
+      <pre class="term">
+# mount -o remount,rw /
+# passwd nhanle
+# reboot</pre>
+      <div class="callout"><span class="lbl">Bài học bảo mật</span>Ai chạm được vào máy (hoặc console VM) là lấy được root. Bảo vệ: mật khẩu GRUB, mã hóa ổ đĩa, khóa BIOS, khóa phòng máy.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Mật khẩu GRUB và cứu hộ bằng đĩa cài</h2>
+  <div class="cols">
+    <div class="stack small">
+      <h3>Đặt mật khẩu cho GRUB</h3>
+      <pre class="term">
+# grub2-setpassword          # Rocky / RHEL
+Enter password:
+Confirm password:
+# cat /boot/grub2/user.cfg
+GRUB2_PASSWORD=grub.pbkdf2.sha512.10000.8C2E...</pre>
+      <p>Từ giờ bấm <kbd>e</kbd> trong GRUB sẽ hỏi user <code>root</code> + mật khẩu này.</p>
+      <div class="callout legacy"><span class="lbl">Ghi chú gốc</span><code>grub-md5-crypt</code> + dòng <code>password --md5 …</code> trong grub.conf (GRUB cũ).</div>
+    </div>
+    <div class="stack small">
+      <h3>Khi quên cả mật khẩu GRUB: dùng đĩa cài</h3>
+      <ol>
+        <li>Boot từ ISO Rocky → <b>Troubleshooting</b> → <b>Rescue a Rocky Linux system</b></li>
+        <li>Chọn <b>1) Continue</b> → hệ thống được mount ở <code>/mnt/sysroot</code></li>
+      </ol>
+      <pre class="term">
+sh-5.1# chroot /mnt/sysroot
+sh-5.1# passwd root
+sh-5.1# touch /.autorelabel
+sh-5.1# exit ; reboot</pre>
+      <p class="muted">CentOS 6 (ghi chú gốc): chọn <b>linux rescue</b> → <code>chroot /mnt/sysimage</code>.</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Mở rộng</p>
+  <h2>Sửa GRUB sau khi cài lại Windows (dual-boot)</h2>
+  <div class="cols">
+    <div class="stack small">
+      <p>Cài lại Windows ghi đè bootloader → không vào được Linux. Cứu bằng USB Linux Live:</p>
+      <pre class="term">
+## giả sử / là sda3, /boot là sda1 (xem bằng lsblk)
+# mount /dev/sda3 /mnt
+# mount /dev/sda1 /mnt/boot
+# for d in dev proc sys; do mount --bind /$d /mnt/$d; done
+# chroot /mnt
+# grub2-install /dev/sda                 # Ubuntu: grub-install
+# grub2-mkconfig -o /boot/grub2/grub.cfg # Ubuntu: update-grub
+# exit ; reboot</pre>
+    </div>
+    <div class="stack small">
+      <div class="callout info"><span class="lbl">Máy UEFI</span>Mount thêm phân vùng EFI vào <code>/mnt/boot/efi</code>; thường chỉ cần chọn lại thứ tự boot trong UEFI hoặc dùng <code>efibootmgr</code>.</div>
+      <div class="callout legacy"><span class="lbl">Ghi chú gốc</span>Chiều ngược lại – xóa Linux làm Windows không boot – sửa bằng đĩa Windows: <code>bootrec /fixmbr</code>, <code>bootrec /fixboot</code> (XP: <code>fixmbr</code>; Win 7: <code>bootsect /nt60 C:</code>).</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab · 30 phút</p>
+  <h2>Lấy lại mật khẩu root</h2>
+  <ol class="steps small">
+    <li>Chụp snapshot. Đặt mật khẩu root thành một chuỗi ngẫu nhiên bạn <b>không ghi lại</b>: <code>openssl rand -base64 12 | passwd --stdin root</code></li>
+    <li>Reboot, khôi phục mật khẩu root bằng <code>rd.break</code></li>
+    <li>Đăng nhập root bằng mật khẩu mới. Kiểm tra SELinux vẫn <code>Enforcing</code> (<code>getenforce</code>)</li>
+    <li>Đặt mật khẩu GRUB bằng <code>grub2-setpassword</code>, reboot, thử bấm <kbd>e</kbd></li>
+    <li>(Nếu có VM Ubuntu) khôi phục mật khẩu user đầu tiên bằng <code>init=/bin/bash</code></li>
+    <li>Quay lại snapshot <b>14-before-recovery</b> trước khi thi</li>
+  </ol>
+  <aside class="notes">Nếu học viên quên touch /.autorelabel: boot lại với rd.break, chroot, touch /.autorelabel. Hoặc thêm enforcing=0 vào dòng kernel để đăng nhập rồi chạy restorecon -v /etc/shadow.</aside>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ôn tập</p>
+  <h2>Toàn cảnh khóa học trong một slide</h2>
+  <table class="small">
+    <tr><th>Chủ đề</th><th>Lệnh then chốt</th><th>Buổi</th></tr>
+    <tr><td>Hệ thống &amp; điều hướng</td><td><code>lsblk df free uname · cd ls pwd man</code></td><td>1–2</td></tr>
+    <tr><td>File, thư mục, tìm kiếm</td><td><code>mkdir -p cp -r mv rm find ln -s alias</code></td><td>3</td></tr>
+    <tr><td>Soạn thảo &amp; xử lý văn bản</td><td><code>vim :%s · sed -i · grep -Ev · cut sort uniq · | &gt; &gt;&gt;</code></td><td>4–5</td></tr>
+    <tr><td>Tiến trình, nén</td><td><code>ps top kill · tar -czvf/-xzvf -C</code></td><td>6</td></tr>
+    <tr><td>Phần mềm</td><td><code>dnf install/remove · rpm -qa/-qf · apt</code></td><td>7</td></tr>
+    <tr><td>User &amp; group</td><td><code>useradd -g -G · usermod -aG · passwd · visudo</code></td><td>8</td></tr>
+    <tr><td>Phân quyền</td><td><code>chmod 750 · chown -R u:g · umask · +s +t · setfacl -m</code></td><td>9–10</td></tr>
+    <tr><td>Đĩa &amp; mount</td><td><code>fdisk mkfs mount · /etc/fstab · bind,ro · mount -a</code></td><td>11</td></tr>
+    <tr><td>Mạng &amp; dịch vụ</td><td><code>nmcli con mod · ip a · systemctl enable --now · firewall-cmd</code></td><td>12</td></tr>
+    <tr><td>Từ xa &amp; tự động</td><td><code>ssh scp ssh-keygen · rsync -av --delete · crontab -e</code></td><td>13</td></tr>
+    <tr><td>Khởi động</td><td><code>rd.break · chroot · passwd · grub2-mkconfig</code></td><td>14</td></tr>
+  </table>
+</section>
+
+<section class="slide">
+  <p class="kicker ex">Thi thử · 90 phút</p>
+  <h2>Đề thi kết thúc môn LPI-I</h2>
+  <div class="cols w6">
+    <ol class="ex small">
+      <li><b>IP tĩnh</b> cho card mạng: <code>192.168.229.29/255.255.255.0</code>, gateway <code>192.168.229.2</code>, DNS <code>8.8.8.8</code>. Kiểm tra kết nối Internet.</li>
+      <li>Trên card mạng đầu tiên gán thêm <b>IP phụ</b>: <code>192.168.255.129/255.255.255.0</code>.</li>
+      <li>Dùng <code>wget</code> tải mã nguồn WordPress (<code>https://wordpress.org/latest.tar.gz</code>). Tạo user <code>hocvien</code>, <code>test</code>. Trong home của <code>hocvien</code> tạo thư mục <code>temp</code>, <code>public_html</code>; giải nén WordPress vào <code>public_html</code>.</li>
+      <li><b>Phân quyền</b>: mọi file/thư mục trong <code>/home/hocvien</code> có chủ là <code>hocvien</code>, nhóm <code>root</code>, quyền <code>750</code>. <b>Chỉ</b> user <code>test</code> (ngoài chủ và nhóm) có quyền đọc &amp; thực thi.</li>
+      <li>Tạo <code>/opt/public_html</code>. <b>Mount bind</b> <code>/home/hocvien/public_html</code> → <code>/opt/public_html</code>, phía <code>/opt</code> chỉ đọc, vẫn tồn tại sau khi khởi động lại.</li>
+    </ol>
+    <div class="stack small">
+      <div class="card tint"><h3>Điều kiện</h3>Máy ảo Rocky Linux 9 (đề gốc: CentOS 6) không giao diện đồ họa. VMnet8 đặt mạng <code>192.168.229.0/24</code>.</div>
+      <div class="card"><h3>Thang điểm gợi ý</h3>Mỗi câu 2 điểm. Câu 1, 2, 5 chỉ tính điểm nếu <b>còn đúng sau reboot</b>.</div>
+      <div class="callout warn"><span class="lbl">Quy tắc</span>Được dùng <code>man</code>, <code>--help</code>. Không dùng slide, không hỏi bạn.</div>
+    </div>
+  </div>
+  <aside class="notes">Bật đồng hồ 90 phút. Thu bài bằng cách học viên chạy script checklist ở slide cuối và chụp màn hình.</aside>
+</section>
+
+<section class="slide">
+  <p class="kicker">Chữa bài · câu 1–2</p>
+  <h2>Mạng: IP tĩnh và IP phụ</h2>
+  <details class="answer"><summary>Hiện lời giải</summary>
+  <pre class="term">
+# nmcli device status                         # xác định tên card, vd ens160
+# nmcli con mod ens160 ipv4.method manual \
+    ipv4.addresses 192.168.229.29/24 \
+    ipv4.gateway 192.168.229.2 \
+    ipv4.dns 8.8.8.8
+# nmcli con mod ens160 +ipv4.addresses 192.168.255.129/24
+# nmcli con up ens160
+# ip -4 a show ens160 | grep inet
+# ping -c 3 192.168.229.2 &amp;&amp; ping -c 3 8.8.8.8 &amp;&amp; ping -c 3 google.com</pre></details>
+  <div class="callout legacy"><span class="lbl">Nếu thi trên CentOS 6 như đề gốc</span>Sửa <code>/etc/sysconfig/network-scripts/ifcfg-eth0</code> (BOOTPROTO=static, IPADDR, NETMASK, GATEWAY, DNS1), tạo <code>ifcfg-eth0:1</code> cho IP phụ, rồi <code>service network restart</code>.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Chữa bài · câu 3</p>
+  <h2>User, thư mục và giải nén WordPress</h2>
+  <details class="answer"><summary>Hiện lời giải</summary>
+  <pre class="term">
+# dnf install -y wget tar
+# useradd hocvien ; useradd test
+# passwd hocvien ; passwd test
+# mkdir /home/hocvien/{temp,public_html}
+# cd /root &amp;&amp; wget https://wordpress.org/latest.tar.gz
+# tar -xzf latest.tar.gz -C /home/hocvien/public_html
+# ls /home/hocvien/public_html
+wordpress</pre></details>
+  <div class="callout tip"><span class="lbl">Bẫy nhỏ</span>Gói giải ra thư mục con <code>wordpress/</code>. Nếu muốn file nằm thẳng trong <code>public_html</code>: thêm <code>--strip-components=1</code>.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Chữa bài · câu 4</p>
+  <h2>Phân quyền: chown, chmod và ACL cho riêng user test</h2>
+  <details class="answer"><summary>Hiện lời giải</summary>
+  <pre class="term">
+# chown -R hocvien:root /home/hocvien
+# chmod -R 750 /home/hocvien
+# setfacl -R -m u:test:r-x /home/hocvien
+# setfacl -R -d -m u:test:r-x /home/hocvien     # file tạo sau cũng áp dụng
+# getfacl /home/hocvien | grep test
+user:test:r-x
+# su - test -c 'ls /home/hocvien/public_html'   # được
+# useradd khach ; su - khach -c 'ls /home/hocvien'
+ls: cannot open directory '/home/hocvien': Permission denied</pre></details>
+  <div class="cols">
+    <div class="callout"><span class="lbl">Vì sao cần ACL?</span>750: other không có quyền. Muốn <b>riêng</b> test được r-x mà không mở cho mọi người → chỉ ACL làm được.</div>
+    <div class="callout legacy"><span class="lbl">CentOS 6</span>Có thể phải bật <code>acl</code> trong fstab cho phân vùng chứa <code>/home</code> rồi <code>mount -o remount</code>.</div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Chữa bài · câu 5</p>
+  <h2>Mount bind chỉ đọc, bền vững qua reboot</h2>
+  <details class="answer"><summary>Hiện lời giải</summary>
+  <pre class="term">
+# mkdir /opt/public_html
+# echo "/home/hocvien/public_html  /opt/public_html  none  bind,ro  0 0" &gt;&gt; /etc/fstab
+# systemctl daemon-reload
+# mount -a
+# findmnt /opt/public_html
+TARGET           SOURCE                               FSTYPE OPTIONS
+/opt/public_html /dev/sdb1[/hocvien/public_html]      ext4   ro,relatime,seclabel
+# touch /opt/public_html/x
+touch: cannot touch '/opt/public_html/x': Read-only file system
+# reboot
+# findmnt /opt/public_html                      # vẫn còn, vẫn ro</pre></details>
+  <div class="callout legacy"><span class="lbl">CentOS 6 (util-linux cũ)</span>Cần 2 dòng trong fstab: <code>… none bind 0 0</code> và <code>… none remount,bind,ro 0 0</code> (đúng như ghi chú gốc Bài 7.3).</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Tự chấm</p>
+  <h2>Checklist kiểm tra sau khi reboot</h2>
+  <div class="cols w6">
+    <pre class="term tight">
+## Câu 1–2
+# ip -4 a | grep -E '192.168.229.29/24|192.168.255.129/24'
+# ip r | grep 'default via 192.168.229.2'
+# grep nameserver /etc/resolv.conf
+# ping -c1 -W2 google.com &gt;/dev/null &amp;&amp; echo "Internet OK"
+## Câu 3
+# id hocvien ; id test
+# ls -d /home/hocvien/{temp,public_html}
+# ls /home/hocvien/public_html/wordpress/wp-config-sample.php
+## Câu 4
+# find /home/hocvien ! -user hocvien | head    # phải rỗng
+# find /home/hocvien ! -group root | head      # phải rỗng
+# stat -c '%a %n' /home/hocvien /home/hocvien/temp
+# getfacl -p /home/hocvien | grep '^user:test'
+## Câu 5
+# findmnt -no OPTIONS /opt/public_html | grep -q '^ro' &amp;&amp; echo "RO OK"
+# grep public_html /etc/fstab</pre>
+    <div class="stack small">
+      <table class="grid">
+        <tr><th>Câu</th><th>Điểm</th><th>Đạt?</th></tr>
+        <tr><td>1 · IP tĩnh + Internet</td><td>2</td><td></td></tr>
+        <tr><td>2 · IP phụ</td><td>2</td><td></td></tr>
+        <tr><td>3 · User, thư mục, WordPress</td><td>2</td><td></td></tr>
+        <tr><td>4 · chown, chmod, ACL</td><td>2</td><td></td></tr>
+        <tr><td>5 · Bind ro + fstab</td><td>2</td><td></td></tr>
+        <tr><th>Tổng</th><th>10</th><th></th></tr>
+      </table>
+      <div class="callout tip"><span class="lbl">Mẹo thi thật</span>Làm xong câu nào kiểm tra ngay câu đó. Dành 10 phút cuối để <b>reboot</b> và chạy checklist.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-title="Thi thử trắc nghiệm">
+  <p class="kicker ex">Thi thử trắc nghiệm · làm ở nhà</p>
+  <h2>Đề thi LPIC-1 thật trông như thế nào?</h2>
+  <div class="cols">
+    <div class="stack small">
+      <ul>
+        <li>Mỗi bài (101, 102): <b>60 câu trong 90 phút</b>, trên máy tính</li>
+        <li>Phần lớn là trắc nghiệm một đáp án; có câu <b>chọn nhiều</b> và câu <b>điền lệnh/tên file</b></li>
+        <li>Số câu mỗi chủ đề tỉ lệ với <b>trọng số</b> (vd 103.1 có trọng số 4 → khoảng 4 câu)</li>
+        <li>Hỏi chính xác tùy chọn lệnh và cả công cụ cũ: SysVinit, GRUB Legacy, yum, zypper</li>
+      </ul>
+      <div class="callout tip"><span class="lbl">Cách luyện</span>Làm thử 1 lần → xem lại câu sai → mở slide buổi tương ứng (mỗi câu ghi rõ “Buổi N · LPI x.y”) → làm lại sau 2–3 ngày.</div>
+    </div>
+    <div class="stack small">
+      <div class="card tint"><h3>Ngân hàng câu hỏi của khóa</h3>Gần 200 câu, gắn theo buổi và mục tiêu LPI. Chế độ thi thử lấy đúng số câu theo trọng số từng mục tiêu của bài 101.</div>
+      <div class="chips">
+        <a class="btn" href="quiz.html?mode=exam">Thi thử LPI-101 · 60 câu · 90 phút →</a>
+        <a class="btn ghost" href="quiz.html?b=14">13 câu của buổi 14</a>
+        <a class="btn ghost" href="quiz.html?mode=all">Tất cả câu hỏi</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Kết thúc khóa học</p>
+  <h2>Hướng đi tiếp theo</h2>
+  <div class="cols">
+    <div class="stack small">
+      <h3>Hoàn thiện chứng chỉ LPIC-1</h3>
+      <ul>
+        <li>Thi 2 bài: <b>101</b> (kiến trúc hệ thống, cài đặt, gói, lệnh GNU, filesystem) và <b>102</b> (shell script, dịch vụ, mạng, bảo mật)</li>
+        <li>Chủ đề nên tự học thêm: thư viện chia sẻ (<code>ldd</code>), <code>rsyslog</code>/logrotate, locale &amp; múi giờ, MTA cơ bản, systemd timer</li>
+        <li>Luyện đề trắc nghiệm trên trang chính thức lpi.org</li>
+      </ul>
+    </div>
+    <div class="stack small">
+      <h3>Lộ trình nghề nghiệp</h3>
+      <ul>
+        <li><b>Quản trị hệ thống</b>: LPIC-2 hoặc RHCSA (thi thực hành trên RHEL – rất giống các lab của khóa này)</li>
+        <li><b>Dịch vụ</b>: web (Apache/Nginx), DNS, DHCP, Samba, MariaDB</li>
+        <li><b>DevOps</b>: Git, Docker, Ansible, CI/CD</li>
+        <li><b>Bảo mật</b>: SELinux, firewall, hardening SSH, giám sát log</li>
+      </ul>
+      <div class="callout"><span class="lbl">Lời khuyên</span>Mỗi ngày 30 phút trên dòng lệnh quan trọng hơn 1 ngày học dồn 5 tiếng.</div>
+    </div>
+  </div>
+</section>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LPI-1 · Buổi 08 — Người dùng, nhóm &amp; sudo</title>
+<link rel="stylesheet" href="assets/deck.css">
+</head>
+<body>
+
+<section class="slide title">
+  <div class="num">08</div>
+  <h1>Quản lý người dùng, nhóm &amp; quyền sudo</h1>
+  <p class="sub"><code>/etc/passwd</code> · <code>/etc/shadow</code> · <code>/etc/group</code> · <code>useradd</code> · <code>usermod</code> · <code>groupadd</code> · <code>chage</code> · <code>sudo</code> · <code>visudo</code></p>
+  <div class="chips"><span class="chip a">LPI-1 · Buổi 8/14</span><span class="chip lpi">107.1</span><span class="chip lpi">110.1</span><span class="chip">bài thi 102</span><span class="chip">~3 giờ</span><span class="chip">Lab: Tài khoản cho công ty</span></div>
+  <div class="prompt"># useradd -g giaovien -G hocvien g1</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Mục tiêu buổi học</p>
+  <h2>Sau buổi này bạn có thể…</h2>
+  <div class="cols">
+    <ul>
+      <li>Đọc hiểu <code>/etc/passwd</code>, <code>/etc/shadow</code>, <code>/etc/group</code></li>
+      <li>Tạo, sửa, khóa, xóa tài khoản người dùng</li>
+      <li>Phân biệt nhóm chính (primary) và nhóm phụ</li>
+      <li>Dùng <code>/etc/skel</code> để chuẩn hóa home folder</li>
+    </ul>
+    <ul>
+      <li>Đặt chính sách tuổi thọ &amp; độ phức tạp mật khẩu</li>
+      <li>Phân biệt <code>su</code> và <code>sudo</code></li>
+      <li>Cấp quyền quản trị có giới hạn bằng <code>visudo</code></li>
+    </ul>
+  </div>
+  <div class="callout info"><span class="lbl">Ôn bài cũ</span>Cài gói từ kho bằng lệnh nào? File này thuộc gói nào? Khởi động dịch vụ và bật tự chạy?</div>
+</section>
+
+<section class="slide" data-title="Hành trình">
+  <p class="kicker">Hành trình · server1 của Công ty ABC</p>
+  <h2>Buổi 08 nằm ở đâu?</h2>
+  <div class="journey">
+    <div class="past"><h3>Dùng lại từ trước</h3><ul class="small"><li>B5: <code>cut -d:</code>, <code>awk -F:</code> đọc <code>/etc/passwd</code></li><li>B4: vim, <code>visudo</code> dùng <code>$EDITOR</code></li><li>B3: <code>~/congty</code> có 3 phòng ban</li></ul></div>
+    <div class="now"><h3>Hôm nay server1 có thêm</h3><ul class="small"><li>Tài khoản 3 phòng: nhóm <b>ketoan, nhansu, giamdoc</b></li><li>Chính sách mật khẩu của công ty</li><li>Quyền sudo có giới hạn cho nhân sự IT</li></ul></div>
+    <div class="next"><h3>Dùng tiếp ở</h3><ul class="small"><li>B9: phân quyền thư mục theo nhóm phòng ban</li><li>B10: thư mục dùng chung (SGID, ACL)</li><li>B13: <code>AllowUsers</code> trong SSH</li></ul></div>
+  </div>
+  <div class="objline">Mục tiêu LPI: <span class="chip lpi">107.1 User &amp; group</span><span class="chip lpi">110.1 sudo, chính sách mật khẩu</span> — nằm trong <b>bài thi 102</b>, không có trong 101</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>User, group và các con số</h2>
+  <div class="cols">
+    <div class="stack small">
+      <table>
+        <tr><th>Loại tài khoản</th><th>UID</th><th>Ví dụ</th></tr>
+        <tr><td>root (siêu quản trị)</td><td>0</td><td>root</td></tr>
+        <tr><td>Hệ thống (chạy dịch vụ)</td><td>1 – 999</td><td>bin, sshd, apache</td></tr>
+        <tr><td>Người dùng thường</td><td>≥ 1000</td><td>nhanle, sinhvien</td></tr>
+      </table>
+      <div class="callout legacy"><span class="lbl">Ghi chú gốc (CentOS 5/6)</span>User thường bắt đầu từ UID 500.</div>
+    </div>
+    <div class="stack small">
+      <div class="card"><h3>Nhóm chính (primary group)</h3>Mỗi user có đúng <b>1</b>. File user tạo ra mang nhóm này. Mặc định trùng tên user.</div>
+      <div class="card"><h3>Nhóm phụ (supplementary)</h3>0 hoặc nhiều nhóm. Cho user thêm quyền của nhóm đó.</div>
+      <pre class="term">
+$ id g1
+uid=1002(g1) gid=1003(giaovien) groups=1003(giaovien),1002(hocvien)</pre>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2><code>/etc/passwd</code> — 7 cột, ngăn cách bởi dấu <code>:</code></h2>
+  <div class="center"><span class="anno" style="font-size:31px"><span style="color:var(--accent)">sinhvien</span>:<span class="muted">x</span>:<span style="color:var(--amber)">1001</span>:<span style="color:var(--amber)">1001</span>:<span style="color:var(--blue)">Sinh Vien A</span>:<span style="color:var(--accent)">/home/sinhvien</span>:<span style="color:var(--red)">/bin/bash</span></span></div>
+  <table class="grid small">
+    <tr><th>1 Tên đăng nhập</th><th>2 Mật khẩu</th><th>3 UID</th><th>4 GID nhóm chính</th><th>5 Mô tả (GECOS)</th><th>6 Thư mục home</th><th>7 Shell đăng nhập</th></tr>
+    <tr><td>sinhvien</td><td><code>x</code> = mật khẩu thật nằm trong <code>/etc/shadow</code></td><td>1001</td><td>1001</td><td>Họ tên, ghi chú</td><td>/home/sinhvien</td><td><code>/bin/bash</code>; <code>/sbin/nologin</code> = không cho đăng nhập</td></tr>
+  </table>
+  <div class="cols">
+    <pre class="term">
+$ tail -n 2 /etc/passwd
+apache:x:48:48:Apache:/usr/share/httpd:/sbin/nologin
+nhanle:x:1000:1000:Nhan Le:/home/nhanle:/bin/bash</pre>
+    <div class="callout tip"><span class="lbl">Mọi người đọc được</span><code>/etc/passwd</code> quyền 644 – vì vậy mật khẩu không được lưu ở đây.</div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2><code>/etc/shadow</code> và <code>/etc/group</code></h2>
+  <div class="cols">
+    <div class="stack small">
+      <h3>/etc/shadow (chỉ root đọc)</h3>
+      <pre class="term tight">
+# grep sinhvien /etc/shadow
+sinhvien:$6$Zx1...kQ0:20380:0:99999:7:::</pre>
+      <table>
+        <tr><td>Cột 2</td><td>Hash mật khẩu (<code>$6$</code> = SHA-512). <code>!</code> hoặc <code>!!</code> ở đầu = bị khóa / chưa đặt</td></tr>
+        <tr><td>Cột 3</td><td>Ngày đổi mật khẩu gần nhất (tính từ 1/1/1970)</td></tr>
+        <tr><td>Cột 4 · 5</td><td>Số ngày tối thiểu · tối đa giữa 2 lần đổi</td></tr>
+        <tr><td>Cột 6</td><td>Cảnh báo trước khi hết hạn (ngày)</td></tr>
+      </table>
+    </div>
+    <div class="stack small">
+      <h3>/etc/group</h3>
+      <pre class="term tight">
+$ grep -E 'giaovien|hocvien|wheel' /etc/group
+wheel:x:10:nhanle
+hocvien:x:1002:g1
+giaovien:x:1003:</pre>
+      <p><code>tên nhóm : x : GID : danh sách thành viên phụ</code></p>
+      <div class="callout"><span class="lbl">Chú ý</span>Cột 4 chỉ liệt kê thành viên có nhóm này là <b>nhóm phụ</b>. g1 có giaovien là nhóm chính nên không xuất hiện ở dòng giaovien.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Tạo user: <code>useradd</code> + <code>passwd</code></h2>
+  <div class="cols">
+    <pre class="term">
+# useradd sinhvien
+# passwd sinhvien
+New password:
+Retype new password:
+passwd: all authentication tokens updated successfully.
+# id sinhvien
+uid=1001(sinhvien) gid=1001(sinhvien) groups=1001(sinhvien)
+# ls -ld /home/sinhvien
+drwx------. 2 sinhvien sinhvien 62 Oct 19 08:38 /home/sinhvien
+# useradd -d /home-folder/test_user user_test
+# useradd -c "Ke Toan 1" -s /bin/bash -G wheel kt1
+# echo 'kt1:Lpi@2026' | chpasswd           # đặt mật khẩu không hỏi</pre>
+    <table class="cheat small">
+      <tr><td>-m</td><td>Tạo home (Rocky tự làm; Ubuntu cần <code>-m</code>)</td></tr>
+      <tr><td>-d /path</td><td>Đặt home ở vị trí khác</td></tr>
+      <tr><td>-u 1500</td><td>Chọn UID</td></tr>
+      <tr><td>-g nhom</td><td>Nhóm chính</td></tr>
+      <tr><td>-G n1,n2</td><td>Các nhóm phụ</td></tr>
+      <tr><td>-s shell</td><td>Shell đăng nhập</td></tr>
+      <tr><td>-c "..."</td><td>Mô tả / họ tên</td></tr>
+      <tr><td>-e 2026-12-31</td><td>Ngày tài khoản hết hạn</td></tr>
+    </table>
+  </div>
+  <div class="callout info"><span class="lbl">Ubuntu</span><code>adduser tên</code> – lệnh tương tác, tự tạo home và hỏi mật khẩu. Thân thiện hơn <code>useradd</code>.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2><code>/etc/skel</code> — “khuôn mẫu” cho home folder mới</h2>
+  <div class="cols">
+    <pre class="term">
+# ls -a /etc/skel
+.  ..  .bash_logout  .bash_profile  .bashrc
+# mkdir /etc/skel/{Software,Backup}
+# touch /etc/skel/thong_tin_cong_ty.txt
+# useradd test-123
+# ls -l /home/test-123
+drwxr-xr-x. 2 test-123 test-123 6 Backup
+drwxr-xr-x. 2 test-123 test-123 6 Software
+-rw-r--r--. 1 test-123 test-123 0 thong_tin_cong_ty.txt</pre>
+    <div class="stack small">
+      <p>Khi tạo user, mọi thứ trong <code>/etc/skel</code> được <b>sao chép</b> vào home của user đó.</p>
+      <div class="callout tip"><span class="lbl">Ứng dụng</span>Đặt sẵn <code>.bashrc</code> có alias của công ty, thư mục chuẩn, file nội quy…</div>
+      <div class="callout warn"><span class="lbl">Chỉ áp dụng cho user tạo SAU</span>User đã có từ trước không bị ảnh hưởng.</div>
+      <p class="muted">Giá trị mặc định khác của useradd: <code>/etc/default/useradd</code>, <code>/etc/login.defs</code>.</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Sửa user: <code>usermod</code> — và cái bẫy <code>-G</code></h2>
+  <div class="cols">
+    <pre class="term">
+# groupadd giaovien ; groupadd hocvien ; groupadd giamdoc
+# useradd -g giaovien -G hocvien g1
+# groups g1              # nhóm đầu tiên = nhóm chính
+g1 : giaovien hocvien
+# usermod -g hocvien -G giaovien g1
+# groups g1
+g1 : hocvien giaovien
+# usermod -G giamdoc g1  # THAY THẾ nhóm phụ!
+# groups g1
+g1 : hocvien giamdoc
+# usermod -aG giaovien g1   # THÊM (append)
+# groups g1
+g1 : hocvien giaovien giamdoc</pre>
+    <table class="cheat small">
+      <tr><td>-g nhom</td><td>Đổi nhóm chính</td></tr>
+      <tr><td>-G n1,n2</td><td>Đặt lại toàn bộ nhóm phụ</td></tr>
+      <tr><td>-aG nhom</td><td><b>Thêm</b> 1 nhóm phụ</td></tr>
+      <tr><td>-s /sbin/nologin</td><td>Cấm đăng nhập shell</td></tr>
+      <tr><td>-L / -U</td><td>Khóa / mở khóa</td></tr>
+      <tr><td>-l tenmoi</td><td>Đổi tên đăng nhập</td></tr>
+      <tr><td>-d /moi -m</td><td>Đổi &amp; chuyển home</td></tr>
+      <tr><td>-c "..."</td><td>Đổi mô tả</td></tr>
+    </table>
+  </div>
+  <div class="callout warn"><span class="lbl">Lỗi kinh điển</span>Quên <code>-a</code>: <code>usermod -G wheel nhanle</code> sẽ <b>gỡ</b> nhanle khỏi mọi nhóm phụ khác.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Xóa user và chuyện “file mồ côi”</h2>
+  <div class="cols">
+    <pre class="term">
+# userdel test-123                # giữ lại home
+# ls -l /home
+drwx------. 3     1005     1005 99 test-123
+# userdel -r user_test            # xóa cả home + mail
+# find / -nouser 2&gt;/dev/null      # tìm file không có chủ
+/home/test-123
+# useradd -u 1005 test_test       # user mới "nhận" UID cũ
+# ls -l /home
+drwx------. 3 test_test test_test 99 test-123</pre>
+    <div class="stack small">
+      <div class="callout"><span class="lbl">Vì sao hiện số?</span>Linux lưu chủ sở hữu bằng <b>UID</b>, không phải tên. User bị xóa → chỉ còn số.</div>
+      <div class="callout warn"><span class="lbl">Rủi ro bảo mật</span>Tạo user mới trùng UID cũ → user mới sở hữu toàn bộ dữ liệu cũ. Đôi khi là mục đích (bàn giao), đôi khi là sự cố.</div>
+      <p class="muted">Ghi chú gốc minh họa đúng tình huống này: tạo <code>test_test</code> với <code>-u 502</code> để tiếp quản thư mục của <code>nhan_test</code>.</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Nhóm: <code>groupadd</code>, <code>groupdel</code>, <code>gpasswd</code></h2>
+  <div class="cols">
+    <pre class="term">
+# groupadd ketoan
+# groupadd -g 2000 nhansu
+# groupmod -n ke_toan ketoan        # đổi tên nhóm
+# gpasswd -a kt1 ke_toan            # thêm thành viên
+Adding user kt1 to group ke_toan
+# gpasswd -d kt1 ke_toan            # gỡ thành viên
+# groups kt1
+kt1 : kt1 wheel
+# grep test123 /etc/group
+test123:x:1006:
+# groupdel test123</pre>
+    <table class="cheat small">
+      <tr><td>groupadd [-g GID]</td><td>Tạo nhóm</td></tr>
+      <tr><td>groupmod -n</td><td>Đổi tên nhóm</td></tr>
+      <tr><td>groupdel</td><td>Xóa nhóm (không xóa được nhóm chính của user đang tồn tại)</td></tr>
+      <tr><td>gpasswd -a / -d</td><td>Thêm / gỡ thành viên</td></tr>
+      <tr><td>groups [user]</td><td>Xem nhóm của user</td></tr>
+      <tr><td>newgrp nhom</td><td>Đổi nhóm chính tạm thời trong phiên</td></tr>
+    </table>
+  </div>
+  <div class="callout tip"><span class="lbl">Áp dụng thay đổi nhóm</span>User phải <b>đăng xuất – đăng nhập lại</b> thì nhóm mới có hiệu lực.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Khóa tài khoản và chính sách mật khẩu</h2>
+  <div class="cols">
+    <div class="stack small">
+      <pre class="term tight">
+# passwd -l nhanld          # khóa
+Locking password for user nhanld.
+# passwd -S nhanld
+nhanld LK 2026-10-19 0 99999 7 -1 (Password locked.)
+# passwd -u nhanld          # mở khóa
+# usermod -s /sbin/nologin nhanld   # cấm shell
+# chage -l kt1
+# chage -M 90 -m 1 -W 7 kt1  # tối đa 90 ngày
+# chage -d 0 kt1             # buộc đổi khi đăng nhập
+# chage -E 2026-12-31 kt1    # hết hạn tài khoản</pre>
+    </div>
+    <div class="stack small">
+      <pre class="file" data-file="/etc/login.defs (áp dụng cho user MỚI)">PASS_MAX_DAYS   90
+PASS_MIN_DAYS   1
+PASS_WARN_AGE   7
+UMASK           077</pre>
+      <pre class="file" data-file="/etc/security/pwquality.conf">minlen  = 10
+dcredit = -2    # ít nhất 2 chữ số
+ucredit = -1    # ít nhất 1 chữ hoa
+lcredit = -1    # ít nhất 1 chữ thường
+ocredit = -1    # ít nhất 1 ký tự đặc biệt</pre>
+      <div class="callout legacy"><span class="lbl">Ghi chú gốc</span>CentOS 6 sửa <code>pam_cracklib.so</code> trong <code>/etc/pam.d/system-auth</code>. Rocky 9 dùng <code>pam_pwquality</code> → sửa <code>pwquality.conf</code>. <code>passwd -e</code> = <code>chage -d 0</code>.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2><code>su</code> và <code>sudo</code></h2>
+  <div class="cols">
+    <div class="stack small">
+      <div class="card"><h3><code>su - user</code> — “switch user”</h3>Đăng nhập hẳn thành user khác, cần <b>mật khẩu của user đích</b>. <code>su -</code> = thành root. Dấu <code>-</code> nạp đầy đủ môi trường của user đích.</div>
+      <div class="card"><h3><code>sudo lệnh</code> — chạy 1 lệnh với quyền root</h3>Cần <b>mật khẩu của chính mình</b>. Có ghi log (<code>/var/log/secure</code>), cấp quyền chi tiết được.</div>
+      <div class="callout tip"><span class="lbl">Thực tế doanh nghiệp</span>Khóa đăng nhập root, mọi người dùng tài khoản riêng + sudo → biết ai làm gì.</div>
+    </div>
+    <pre class="term">
+[root@server1 ~]# usermod -aG wheel nhanle
+[root@server1 ~]# su - nhanle
+[nhanle@server1 ~]$ dnf install -y tree
+Error: This command has to be run with superuser privileges
+[nhanle@server1 ~]$ sudo dnf install -y tree
+[sudo] password for nhanle:
+Complete!
+[nhanle@server1 ~]$ sudo -l            # mình được phép gì?
+[nhanle@server1 ~]$ sudo -i            # mở shell root
+[root@server1 ~]# exit</pre>
+  </div>
+  <div class="callout info"><span class="lbl">Nhóm quản trị sẵn có</span>Rocky/RHEL: nhóm <code>wheel</code> · Ubuntu: nhóm <code>sudo</code>.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2><code>visudo</code> — cấp quyền chi tiết</h2>
+  <div class="cols w6">
+    <pre class="file" data-file="/etc/sudoers.d/congty   (mở bằng: visudo -f /etc/sudoers.d/congty)">## user  MÁY=(CHẠY_VỚI_USER)  LỆNH
+root      ALL=(ALL)       ALL
+nhanle    ALL=(ALL)       ALL                  # toàn quyền
+%admin    ALL=(ALL)       ALL                  # % = cả nhóm
+nhanle2   ALL=(ALL)       NOPASSWD: ALL        # không hỏi mật khẩu
+
+## Chỉ được chạy 1 lệnh
+test      ALL=(root)      /usr/bin/systemctl restart httpd
+
+## Gom lệnh thành bí danh
+Cmnd_Alias USERMGMT = /usr/sbin/useradd, \
+                      /usr/bin/passwd [A-Za-z]*, \
+                      !/usr/bin/passwd root
+ns1       ALL=(root)      USERMGMT</pre>
+    <div class="stack small">
+      <div class="callout warn"><span class="lbl">Luôn dùng visudo</span>visudo kiểm tra cú pháp trước khi lưu. Sửa <code>/etc/sudoers</code> bằng vi mà sai cú pháp → mất luôn quyền sudo.</div>
+      <div class="callout tip"><span class="lbl">Thực hành tốt</span>Đặt quy tắc riêng trong <code>/etc/sudoers.d/</code>, không sửa file gốc.</div>
+      <div class="callout legacy"><span class="lbl">Cảnh báo về “!” (dấu phủ định)</span><code>ALL, !TEST</code> như ghi chú gốc <b>không an toàn</b>: user vẫn lách được (vd <code>sudo -i</code> hoặc chép <code>/bin/vi</code> sang tên khác). Hãy cấp danh sách lệnh được phép thay vì cấm.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab · 60 phút</p>
+  <h2>Tạo hệ thống tài khoản cho công ty</h2>
+  <div class="cols w6">
+    <ol class="steps small">
+      <li>Chuẩn bị <code>/etc/skel</code>: thư mục <code>TaiLieu</code> và file <code>noi-quy.txt</code></li>
+      <li>Tạo nhóm <code>ketoan</code>, <code>nhansu</code>, <code>giamdoc</code></li>
+      <li>Tạo <code>kt1</code>, <code>kt2</code> (nhóm chính ketoan), <code>ns1</code> (nhóm chính nhansu), <code>gd1</code> (nhóm chính giamdoc, nhóm phụ ketoan + nhansu). Mật khẩu <code>Lpi@2026</code></li>
+      <li>Kiểm tra bằng <code>id</code> và <code>/etc/group</code>; home của mọi user có <code>TaiLieu</code></li>
+      <li><code>kt1</code> phải đổi mật khẩu lần đầu đăng nhập; mật khẩu hết hạn sau 90 ngày</li>
+      <li><code>kt2</code> nghỉ phép: khóa tài khoản, thử đăng nhập → thất bại → mở khóa</li>
+      <li><code>gd1</code> có toàn quyền sudo (thêm vào <code>wheel</code>)</li>
+      <li><code>ns1</code> chỉ được sudo: <code>useradd</code> và đổi mật khẩu user khác, <b>trừ root</b></li>
+      <li>Xóa <code>kt2</code> giữ home; tìm file mồ côi</li>
+    </ol>
+    <div class="callout tip"><span class="lbl">Cách kiểm tra</span>Mở phiên thứ 2 và đăng nhập thật bằng từng user (<code>su - kt1</code> hoặc SSH) để thấy kết quả – đừng chỉ đọc file.</div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab · Gợi ý lời giải</p>
+  <h2>Lời giải tham khảo</h2>
+  <details class="answer"><summary>Hiện lời giải</summary>
+  <pre class="term tight">
+# mkdir /etc/skel/TaiLieu &amp;&amp; echo "Noi quy cong ty" &gt; /etc/skel/noi-quy.txt
+# groupadd ketoan; groupadd nhansu; groupadd giamdoc
+# useradd -g ketoan kt1; useradd -g ketoan kt2; useradd -g nhansu ns1
+# useradd -g giamdoc -G ketoan,nhansu gd1
+# for u in kt1 kt2 ns1 gd1; do echo "$u:Lpi@2026" | chpasswd; done
+# id gd1; grep -E 'ketoan|nhansu|giamdoc' /etc/group; ls /home/kt1
+# chage -d 0 -M 90 kt1
+# passwd -l kt2 ; su - nhanle -c 'su - kt2'   # thử -&gt; Authentication failure
+# passwd -u kt2
+# usermod -aG wheel gd1
+# visudo -f /etc/sudoers.d/nhansu
+ns1  ALL=(root)  /usr/sbin/useradd, /usr/bin/passwd [A-Za-z]*, !/usr/bin/passwd root
+# su - ns1 -c 'sudo -l'
+# userdel kt2 ; find / -nouser 2&gt;/dev/null</pre></details>
+  <aside class="notes">Kiểm tra ns1: sudo passwd kt1 → OK; sudo passwd root → "Sorry, user ns1 is not allowed..." Lưu ý: root dùng su sang user khác không cần mật khẩu nên phải su qua user thường để thử khóa.</aside>
+</section>
+
+<section class="slide">
+  <p class="kicker ex">Bài tập</p>
+  <h2>Luyện tập</h2>
+  <ol class="ex small">
+    <li>Tạo user <code>web</code> không đăng nhập được, home ở <code>/srv/web</code>.
+      <details class="answer"><summary>Đáp án</summary><code>useradd -d /srv/web -s /sbin/nologin web</code></details></li>
+    <li>Thêm <code>nhanle</code> vào nhóm <code>docker</code> mà không mất các nhóm phụ hiện có.
+      <details class="answer"><summary>Đáp án</summary><code>usermod -aG docker nhanle</code> (hoặc <code>gpasswd -a nhanle docker</code>)</details></li>
+    <li>Liệt kê tên các user có UID ≥ 1000.
+      <details class="answer"><summary>Đáp án</summary><code>awk -F: '$3&gt;=1000 {print $1}' /etc/passwd</code></details></li>
+    <li>Dòng <code>test:!!:20380:0:99999:7:::</code> trong shadow cho biết điều gì?
+      <details class="answer"><summary>Đáp án</summary>User <code>test</code> chưa được đặt mật khẩu (hoặc bị khóa) – không đăng nhập bằng mật khẩu được.</details></li>
+    <li>Viết dòng sudoers cho nhóm <code>webadmin</code> được restart httpd mà không cần mật khẩu.
+      <details class="answer"><summary>Đáp án</summary><code>%webadmin ALL=(root) NOPASSWD: /usr/bin/systemctl restart httpd</code></details></li>
+  </ol>
+</section>
+
+<section class="slide" data-title="Trắc nghiệm nhanh">
+  <p class="kicker ex">Trắc nghiệm nhanh · 5 phút</p>
+  <h2>Kiểm tra trước khi về</h2>
+  <ol class="ex small">
+    <li>Thêm <code>nhanle</code> vào nhóm <code>docker</code> mà không mất các nhóm phụ đang có?
+      <details class="answer"><summary>Đáp án</summary><code>usermod -aG docker nhanle</code></details></li>
+    <li>Buộc <code>kt1</code> đổi mật khẩu ở lần đăng nhập tới?
+      <details class="answer"><summary>Đáp án</summary><code>chage -d 0 kt1</code> (hoặc <code>passwd -e kt1</code>).</details></li>
+    <li>Vì sao phải sửa sudo bằng <code>visudo</code>?
+      <details class="answer"><summary>Đáp án</summary>visudo kiểm tra cú pháp trước khi lưu – sai cú pháp có thể mất quyền sudo.</details></li>
+  </ol>
+  <div class="chips"><a class="btn" href="quiz.html?b=8">Làm đủ 12 câu của buổi 08 →</a></div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Tổng kết</p>
+  <h2>Bảng lệnh buổi 08 &amp; bài về nhà</h2>
+  <div class="cols">
+    <table class="cheat small">
+      <tr><td>useradd · passwd · chpasswd</td><td>Tạo user, đặt mật khẩu</td></tr>
+      <tr><td>usermod -aG -g -s -L -U</td><td>Sửa user</td></tr>
+      <tr><td>userdel [-r]</td><td>Xóa user</td></tr>
+      <tr><td>groupadd · groupdel · gpasswd</td><td>Nhóm</td></tr>
+      <tr><td>id · groups</td><td>Kiểm tra</td></tr>
+      <tr><td>chage -l -M -d -E</td><td>Tuổi thọ mật khẩu</td></tr>
+      <tr><td>su - · sudo · sudo -l</td><td>Đổi quyền</td></tr>
+      <tr><td>visudo [-f file]</td><td>Cấu hình sudo</td></tr>
+    </table>
+    <div class="stack">
+      <h3>Bài về nhà</h3>
+      <ol class="small">
+        <li>Hoàn thành lab, thử mọi trường hợp “phải thất bại”</li>
+        <li>Trên Ubuntu: tạo user bằng <code>adduser</code>, cho vào nhóm <code>sudo</code></li>
+        <li>Snapshot <b>08-users</b> (buổi 9–10 dùng tiếp các user này)</li>
+      </ol>
+      <div class="callout info"><span class="lbl">Buổi 09</span>Phân quyền file &amp; thư mục: <code>rwx</code>, <code>chmod</code>, <code>chown</code>, <code>umask</code>.</div>
+    </div>
+  </div>
+</section>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

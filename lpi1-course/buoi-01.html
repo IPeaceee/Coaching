@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LPI-1 · Buổi 01 — Tổng quan Linux &amp; cài đặt</title>
+<link rel="stylesheet" href="assets/deck.css">
+</head>
+<body>
+
+<section class="slide title">
+  <div class="num">01</div>
+  <h1>Tổng quan Linux &amp; cài đặt hệ thống</h1>
+  <p class="sub">Linux là gì, các bản phân phối, cây thư mục, phân vùng đĩa và cài máy ảo đầu tiên.</p>
+  <div class="chips"><span class="chip a">LPI-1 · Buổi 1/14</span><span class="chip lpi">102.1</span><span class="chip lpi">104.7</span><span class="chip">~3 giờ</span><span class="chip">Lab: cài Rocky Linux 9</span></div>
+  <div class="prompt">$ ./khoa-hoc-linux --bat-dau</div>
+  <aside class="notes">Giới thiệu bản thân, mục tiêu khóa học, cách chấm điểm. Hỏi nhanh: ai đã từng dùng Linux / dòng lệnh? Điều chỉnh tốc độ theo lớp.</aside>
+</section>
+
+<section class="slide">
+  <p class="kicker">Mục tiêu buổi học</p>
+  <h2>Sau buổi này bạn có thể…</h2>
+  <div class="cols">
+    <ul>
+      <li>Giải thích Linux, kernel và distro khác nhau thế nào</li>
+      <li>Phân biệt hai họ distro chính: <b>Red Hat</b> và <b>Debian</b></li>
+      <li>Nêu vai trò các thư mục chính: <code>/etc</code>, <code>/home</code>, <code>/var</code>…</li>
+      <li>Hiểu tên ổ đĩa <code>sda</code>, <code>sdb1</code>, swap, MBR/GPT, LVM</li>
+      <li>Tự cài một máy ảo Rocky Linux 9 với phân vùng tự chọn</li>
+    </ul>
+    <div class="card tint small">
+      <h3>Lịch trình ~3 giờ</h3>
+      <table>
+        <tr><td>0:00</td><td>Linux &amp; distro</td></tr>
+        <tr><td>0:30</td><td>Cây thư mục, ổ đĩa, phân vùng</td></tr>
+        <tr><td>1:15</td><td>Nghỉ giải lao</td></tr>
+        <tr><td>1:25</td><td>Demo + Lab cài đặt</td></tr>
+        <tr><td>2:35</td><td>Bài tập + tổng kết</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-title="Hành trình">
+  <p class="kicker">Dự án xuyên suốt khóa học</p>
+  <h2>Bạn là quản trị viên mới của Công ty ABC</h2>
+  <p class="story">Công ty có 3 phòng: <b>kế toán, nhân sự, kỹ thuật</b>. Trong 14 buổi, bạn biến một máy trống thành <b>server1</b> – máy chủ file và web có tài khoản, phân quyền, ổ dữ liệu riêng, IP tĩnh và sao lưu tự động. Mỗi buổi thêm một mảnh và dùng lại mảnh của buổi trước.</p>
+  <div class="journey">
+    <div class="past"><h3>Bạn đã có</h3><ul class="small"><li>Kinh nghiệm dùng Windows: ổ C:, D:, Program Files</li><li>VMware Workstation hoặc VirtualBox</li></ul></div>
+    <div class="now"><h3>Hôm nay server1 có thêm</h3><ul class="small"><li>Máy ảo cài Rocky Linux 9</li><li>Phân vùng <code>/boot</code>, swap, <code>/</code> trên sda; <code>/home</code> trên sdb</li><li>Snapshot <b>01-fresh-install</b></li></ul></div>
+    <div class="next"><h3>Dùng tiếp ở</h3><ul class="small"><li>B2: khám phá server1 bằng dòng lệnh</li><li>B11: thêm ổ thứ 3, LVM thật</li><li>B14: <code>/boot</code>, GRUB khi khôi phục</li></ul></div>
+  </div>
+  <div class="objline">Mục tiêu LPI: <span class="chip lpi">102.1 Bố cục ổ đĩa · 2đ</span><span class="chip lpi">104.7 FHS · 2đ</span><span class="chip lpi">101.3 shutdown</span></div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Linux là gì?</h2>
+  <div class="cols w6">
+    <div class="stack">
+      <p><b>Linux</b> thực chất là <b>kernel</b> (nhân) – phần mềm điều khiển phần cứng, do Linus Torvalds viết năm 1991.</p>
+      <p>Một <b>hệ điều hành Linux</b> = kernel + công cụ GNU (bash, ls, cp…) + trình quản lý gói + ứng dụng. Gói tất cả lại gọi là một <b>distro</b> (bản phân phối).</p>
+      <div class="callout tip"><span class="lbl">Ở đâu cũng có Linux</span>Máy chủ web, cloud (AWS, Azure), Android, router, TV, siêu máy tính.</div>
+    </div>
+    <div class="flow vert">
+      <div class="box blue">Người dùng<small>gõ lệnh, dùng ứng dụng</small></div>
+      <div class="arrow center">↓</div>
+      <div class="box alt">Shell (bash) &amp; ứng dụng<small>diễn dịch lệnh</small></div>
+      <div class="arrow center">↓</div>
+      <div class="box">Kernel Linux<small>quản lý CPU, RAM, đĩa, mạng</small></div>
+      <div class="arrow center">↓</div>
+      <div class="box blue">Phần cứng</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Các bản phân phối (distro) phổ biến</h2>
+  <table>
+    <tr><th>Họ</th><th>Distro tiêu biểu</th><th>Gói</th><th>Công cụ cài</th></tr>
+    <tr><td><b>Red Hat</b></td><td>RHEL, <b>Rocky Linux</b>, AlmaLinux, Fedora, CentOS Stream, Oracle Linux</td><td><code>.rpm</code></td><td><code>dnf</code> (trước là <code>yum</code>), <code>rpm</code></td></tr>
+    <tr><td><b>Debian</b></td><td>Debian, <b>Ubuntu</b>, Linux Mint, Kali Linux</td><td><code>.deb</code></td><td><code>apt</code>, <code>dpkg</code></td></tr>
+    <tr><td>Khác</td><td>openSUSE (zypper), Arch (pacman), Alpine (apk)</td><td>—</td><td>—</td></tr>
+  </table>
+  <div class="cols">
+    <div class="callout info"><span class="lbl">Khóa học dùng</span><b>Rocky Linux 9</b> (họ Red Hat, kế thừa CentOS) làm máy chính, <b>Ubuntu 24.04</b> để đối chiếu.</div>
+    <div class="callout legacy"><span class="lbl">Lưu ý</span>FreeBSD, macOS là hệ <i>Unix-like</i> – giống Linux nhưng <b>không</b> dùng kernel Linux.</div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Cây thư mục: Linux so với Windows</h2>
+  <div class="cols w6">
+    <table class="small">
+      <tr><th>Linux</th><th>Chứa gì</th><th>Windows tương đương</th></tr>
+      <tr><td><code>/</code></td><td>Gốc của mọi thứ</td><td><code>C:\</code></td></tr>
+      <tr><td><code>/home</code></td><td>Thư mục cá nhân của user</td><td><code>C:\Users</code></td></tr>
+      <tr><td><code>/root</code></td><td>Thư mục cá nhân của root</td><td>—</td></tr>
+      <tr><td><code>/etc</code></td><td>File cấu hình hệ thống</td><td>Registry (gần giống)</td></tr>
+      <tr><td><code>/usr</code></td><td>Chương trình, thư viện</td><td><code>C:\Program Files</code></td></tr>
+      <tr><td><code>/var</code></td><td>Dữ liệu thay đổi: log, web, mail</td><td><code>C:\ProgramData</code></td></tr>
+      <tr><td><code>/boot</code></td><td>Kernel, bootloader</td><td>—</td></tr>
+      <tr><td><code>/tmp</code></td><td>File tạm</td><td><code>%TEMP%</code></td></tr>
+      <tr><td><code>/dev</code>, <code>/proc</code></td><td>Thiết bị, thông tin kernel</td><td>Device Manager</td></tr>
+      <tr><td>swap</td><td>RAM ảo (phân vùng riêng)</td><td><code>pagefile.sys</code></td></tr>
+    </table>
+    <div class="stack">
+      <div class="callout tip"><span class="lbl">Khác biệt lớn</span>Linux <b>không có ổ C:, D:</b>. Mọi ổ đĩa được “gắn” (mount) vào một thư mục trong cây <code>/</code>.</div>
+      <div class="callout"><span class="lbl">Ghi nhớ</span>Còn có <code>/opt</code> (phần mềm bên thứ ba), <code>/mnt</code> &amp; <code>/media</code> (điểm mount). Xem đầy đủ: <code>man hier</code>.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Ổ đĩa &amp; phân vùng được đặt tên thế nào?</h2>
+  <div class="cols">
+    <div class="stack">
+      <table class="small">
+        <tr><th>Tên</th><th>Ý nghĩa</th></tr>
+        <tr><td><code>/dev/sda</code></td><td>Ổ SATA/SCSI thứ nhất</td></tr>
+        <tr><td><code>/dev/sdb</code></td><td>Ổ thứ hai</td></tr>
+        <tr><td><code>/dev/sda1</code></td><td>Phân vùng 1 của ổ <code>sda</code></td></tr>
+        <tr><td><code>/dev/nvme0n1p2</code></td><td>Ổ NVMe 0, phân vùng 2</td></tr>
+        <tr><td><code>/dev/vda</code></td><td>Ổ ảo (KVM/cloud)</td></tr>
+        <tr><td><code>/dev/sr0</code></td><td>Ổ CD/DVD</td></tr>
+      </table>
+    </div>
+    <div class="stack">
+      <div class="card"><h3>MBR (cũ)</h3><p class="small">Tối đa <b>4 primary</b>, hoặc 3 primary + 1 extended (chứa nhiều logical). Ổ ≤ 2 TB.</p></div>
+      <div class="card"><h3>GPT (mới, đi với UEFI)</h3><p class="small">Tới <b>128 phân vùng</b>, ổ rất lớn. Mặc định trên máy hiện đại.</p></div>
+      <div class="callout"><span class="lbl">Tối thiểu để cài Linux</span><code>/</code> + <code>swap</code>. Máy UEFI cần thêm <code>/boot/efi</code>.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Phương án 1 — Phân vùng cơ bản (2 ổ đĩa)</h2>
+  <div class="cols w6">
+    <div class="stack">
+      <div class="flow">
+        <div class="box" style="flex:1">/boot<small>1 GB · sda1</small></div>
+        <div class="box alt" style="flex:1.2">swap<small>2 GB · sda2</small></div>
+        <div class="box" style="flex:3">/<small>phần còn lại · sda3</small></div>
+      </div>
+      <div class="flow">
+        <div class="box blue">/home<small>toàn bộ ổ sdb · sdb1</small></div>
+      </div>
+      <p class="small muted">Ổ <b>sda</b> (20 GB) chứa hệ thống, ổ <b>sdb</b> (10 GB) chứa dữ liệu người dùng.</p>
+    </div>
+    <div class="stack">
+      <div class="callout tip"><span class="lbl">Vì sao tách /home?</span>Cài lại hệ điều hành mà không mất dữ liệu user; user đầy đĩa không làm “treo” hệ thống. Cùng lý do, máy chủ mail/log/CSDL nên tách <code>/var</code>.</div>
+      <div class="callout legacy"><span class="lbl">Ghi chú gốc: “swap = 2 × RAM”</span>Quy tắc cũ. Ngày nay: RAM ≤ 2 GB → 2×RAM; 2–8 GB → bằng RAM; &gt; 8 GB → 4–8 GB (cần ngủ đông thì ≥ RAM).</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Phương án 2 — LVM: gộp nhiều ổ thành một “bể”</h2>
+  <div class="flow">
+    <div class="box blue">Ổ vật lý<small>/dev/sda3, /dev/sdb</small></div>
+    <div class="arrow">→</div>
+    <div class="box">Physical Volume (PV)<small>pvcreate</small></div>
+    <div class="arrow">→</div>
+    <div class="box alt">Volume Group (VG)<small>vgcreate — “bể” dung lượng</small></div>
+    <div class="arrow">→</div>
+    <div class="box">Logical Volume (LV)<small>lvcreate → mount vào / , /home</small></div>
+  </div>
+  <div class="cols">
+    <ul>
+      <li>Vẫn cần <code>/boot</code> là phân vùng thường (ngoài LVM)</li>
+      <li>LV có thể <b>mở rộng</b> khi đang chạy – thêm ổ mới vào VG là xong</li>
+      <li>Rocky &amp; Ubuntu Server cài mặc định đã dùng LVM</li>
+    </ul>
+    <pre class="term">
+# lvs
+  LV   VG   Attr       LSize
+  root rl   -wi-ao---- 17.0g
+  swap rl   -wi-ao----  2.0g</pre>
+  </div>
+  <div class="callout info"><span class="lbl">RAID (biết khái niệm)</span><b>RAID 1</b> = 2 ổ soi gương nhau (chịu hỏng 1 ổ). <b>RAID 5</b> = ≥ 3 ổ, có parity. RAID cứng do card RAID làm, RAID mềm do Linux (<code>mdadm</code>) làm.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Chuẩn bị lab</p>
+  <h2>Môi trường thực hành của cả khóa</h2>
+  <div class="cols">
+    <div class="stack">
+      <div class="card"><h3>Phần mềm ảo hóa</h3><p class="small">VMware Workstation Pro (miễn phí cho cá nhân) hoặc VirtualBox.</p></div>
+      <div class="card"><h3>VM1 — server (bắt buộc)</h3><p class="small">Rocky Linux 9 Minimal · 2 vCPU · 2 GB RAM · ổ 20 GB + ổ 10 GB · mạng NAT (VMnet8)</p></div>
+      <div class="card"><h3>VM2 — client (từ buổi 13)</h3><p class="small">Bản sao (clone) của VM1 hoặc Ubuntu Server 24.04</p></div>
+    </div>
+    <div class="stack">
+      <div class="callout warn"><span class="lbl">Thói quen sống còn</span>Chụp <b>snapshot</b> trước mỗi bài lab. Làm hỏng → quay lại trong 10 giây.</div>
+      <div class="callout"><span class="lbl">Đặt tên thống nhất</span>Hostname: <code>server1.lab.local</code><br>User thường: tên bạn, ví dụ <code>nhanle</code><br>Mật khẩu lab: dễ nhớ nhưng không dùng ở nơi khác</div>
+      <div class="callout legacy"><span class="lbl">Ghi chú gốc</span>Ghi chú cũ dùng CentOS 5/6 – đã ngừng hỗ trợ. Rocky 9 là bản thay thế trực tiếp.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Demo</p>
+  <h2>Các bước cài Rocky Linux 9</h2>
+  <ol class="steps small">
+    <li>Tạo VM, gắn file ISO <code>Rocky-9-latest-x86_64-minimal.iso</code>, thêm ổ thứ hai 10 GB</li>
+    <li>Boot → chọn <b>Install Rocky Linux 9</b> → ngôn ngữ English (khuyên dùng để dễ tra lỗi)</li>
+    <li><b>Installation Destination</b> → chọn cả 2 ổ → <b>Custom</b> → <b>Standard Partition</b> → tạo phân vùng như phương án 1</li>
+    <li><b>Network &amp; Host Name</b> → bật card mạng (ON) → hostname <code>server1.lab.local</code></li>
+    <li><b>Root Password</b> → đặt mật khẩu, tick <i>Allow root SSH login with password</i> (chỉ cho lab)</li>
+    <li><b>User Creation</b> → tạo user của bạn, tick <i>Make this user administrator</i></li>
+    <li><b>Begin Installation</b> → chờ xong → <b>Reboot System</b> → tháo ISO</li>
+  </ol>
+  <aside class="notes">Chiếu màn hình cài trực tiếp. Nhấn mạnh bước Custom partition: thêm /boot 1GiB, swap 2GiB, / phần còn lại trên sda; /home toàn bộ sdb. Nếu máy học viên yếu, cho 1.5GB RAM vẫn chạy được bản minimal.</aside>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Đăng nhập lần đầu &amp; “chào hỏi” hệ thống</h2>
+  <div class="cols">
+    <pre class="term">
+server1 login: root
+Password:
+[root@server1 ~]# cat /etc/os-release | head -2
+NAME="Rocky Linux"
+VERSION="9.6 (Blue Onyx)"
+[root@server1 ~]# uname -r
+5.14.0-570.17.1.el9_6.x86_64
+[root@server1 ~]# hostname
+server1.lab.local</pre>
+    <pre class="term">
+# lsblk
+NAME   MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
+sda      8:0    0   20G  0 disk
+├─sda1   8:1    0    1G  0 part /boot
+├─sda2   8:2    0    2G  0 part [SWAP]
+└─sda3   8:3    0   17G  0 part /
+sdb      8:16   0   10G  0 disk
+└─sdb1   8:17   0   10G  0 part /home
+sr0     11:0    1  1.8G  0 rom</pre>
+  </div>
+  <div class="callout tip"><span class="lbl">Mẹo</span>Khi gõ mật khẩu, màn hình <b>không hiện gì</b> (kể cả dấu *). Cứ gõ rồi Enter.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Tắt máy &amp; khởi động lại đúng cách</h2>
+  <div class="cols">
+    <table class="cheat">
+      <tr><th>Lệnh</th><th>Tác dụng</th></tr>
+      <tr><td>poweroff</td><td>Tắt máy ngay</td></tr>
+      <tr><td>reboot</td><td>Khởi động lại</td></tr>
+      <tr><td>shutdown -h now</td><td>Tắt ngay</td></tr>
+      <tr><td>shutdown -r +5</td><td>Khởi động lại sau 5 phút</td></tr>
+      <tr><td>shutdown -c</td><td>Hủy lệnh hẹn giờ</td></tr>
+    </table>
+    <div class="stack">
+      <div class="callout legacy"><span class="lbl">Hệ cũ (trong ghi chú)</span><code>init 0</code> = tắt máy, <code>init 6</code> = khởi động lại. Vẫn chạy được trên Rocky 9 nhưng nên dùng lệnh bên trái.</div>
+      <div class="callout warn"><span class="lbl">Đừng</span>Tắt VM bằng nút “Power Off” khi đang ghi dữ liệu – dễ hỏng filesystem.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab 1 · 60 phút</p>
+  <h2>Cài Rocky Linux 9 với phân vùng tự chọn</h2>
+  <ol class="steps small">
+    <li>Tạo VM theo cấu hình ở slide “Môi trường thực hành” (2 ổ: 20 GB + 10 GB)</li>
+    <li>Phân vùng: <code>/boot</code> 1 GiB, <code>swap</code> 2 GiB, <code>/</code> phần còn lại trên <b>sda</b>; <code>/home</code> toàn bộ <b>sdb</b></li>
+    <li>Đặt hostname <code>server1.lab.local</code>, bật mạng, tạo root + một user thường có quyền admin</li>
+    <li>Sau khi cài, đăng nhập bằng <b>root</b> và chạy: <code>lsblk</code>, <code>df -h</code>, <code>free -h</code>, <code>ip a</code></li>
+    <li>Đăng xuất (<code>exit</code>), đăng nhập bằng user thường – để ý dấu nhắc <code>$</code> thay vì <code>#</code></li>
+    <li>Tắt máy bằng <code>poweroff</code> → chụp snapshot tên <b>01-fresh-install</b></li>
+  </ol>
+  <div class="callout tip"><span class="lbl">Kết quả cần đạt</span>Ảnh chụp lệnh <code>lsblk</code> giống slide “Đăng nhập lần đầu”.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab 2 · tùy chọn / về nhà</p>
+  <h2>Cài Ubuntu Server 24.04 dùng LVM</h2>
+  <div class="cols">
+    <ol class="steps small">
+      <li>Tạo VM mới 2 GB RAM, ổ 20 GB, gắn ISO Ubuntu Server 24.04</li>
+      <li>Ở bước Storage chọn <b>Use an entire disk</b> + <b>Set up this disk as an LVM group</b></li>
+      <li>Profile: tên máy <code>ubuntu1</code>, user của bạn</li>
+      <li>Tick <b>Install OpenSSH server</b></li>
+      <li>Sau khi cài: chạy các lệnh bên phải và so sánh với Rocky</li>
+    </ol>
+    <pre class="term">
+$ sudo pvs
+$ sudo vgs
+$ sudo lvs
+$ lsblk
+$ df -h /</pre>
+  </div>
+  <div class="callout info"><span class="lbl">Quan sát</span>Ubuntu không cho đăng nhập root trực tiếp – user đầu tiên dùng <code>sudo</code>. Ta học kỹ ở buổi 8.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker ex">Bài tập</p>
+  <h2>Kiểm tra nhanh</h2>
+  <ol class="ex small">
+    <li>File cấu hình hệ thống thường nằm trong thư mục nào?
+      <details class="answer"><summary>Đáp án</summary><code>/etc</code></details></li>
+    <li>Ổ SATA thứ hai, phân vùng thứ ba có tên thiết bị là gì?
+      <details class="answer"><summary>Đáp án</summary><code>/dev/sdb3</code></details></li>
+    <li>Ổ MBR, bạn cần 6 phân vùng. Làm thế nào?
+      <details class="answer"><summary>Đáp án</summary>3 primary + 1 extended; trong extended tạo các logical (sda5, sda6, sda7…). Hoặc dùng GPT.</details></li>
+    <li>Nêu 2 lợi ích khi đặt <code>/home</code> trên phân vùng riêng.
+      <details class="answer"><summary>Đáp án</summary>Cài lại OS không mất dữ liệu user; user ghi đầy đĩa không làm đầy phân vùng <code>/</code>.</details></li>
+    <li>Thành phần nào của LVM được mount vào thư mục: PV, VG hay LV?
+      <details class="answer"><summary>Đáp án</summary>LV (Logical Volume), sau khi đã định dạng filesystem.</details></li>
+    <li>Swap tương đương thứ gì trên Windows?
+      <details class="answer"><summary>Đáp án</summary><code>pagefile.sys</code> – bộ nhớ ảo trên đĩa.</details></li>
+  </ol>
+</section>
+
+<section class="slide" data-title="Trắc nghiệm nhanh">
+  <p class="kicker ex">Trắc nghiệm nhanh · 5 phút</p>
+  <h2>Kiểm tra trước khi về</h2>
+  <ol class="ex small">
+    <li>Phân vùng nào <b>bắt buộc</b> khi cài Linux: <code>/</code>, <code>/boot</code>, <code>/home</code> hay swap?
+      <details class="answer"><summary>Đáp án</summary>Chỉ <code>/</code>. Swap rất nên có; <code>/boot</code> cần tách khi dùng LVM/mã hóa.</details></li>
+    <li>Máy UEFI cần thêm phân vùng gì?
+      <details class="answer"><summary>Đáp án</summary>EFI System Partition (ESP) – FAT, mount ở <code>/boot/efi</code>.</details></li>
+    <li>Trong LVM, đối tượng nào được mkfs và mount?
+      <details class="answer"><summary>Đáp án</summary>Logical Volume (LV).</details></li>
+  </ol>
+  <div class="chips"><a class="btn" href="quiz.html?b=1">Làm đủ 10 câu của buổi 01 →</a><a class="btn ghost" href="quiz.html?obj=102.1">Luyện mục tiêu 102.1</a></div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Tổng kết</p>
+  <h2>Ghi nhớ &amp; chuẩn bị buổi sau</h2>
+  <div class="cols">
+    <div class="stack">
+      <h3>Điều cần nhớ</h3>
+      <ul class="small">
+        <li>Linux = kernel; distro = kernel + công cụ + trình quản lý gói</li>
+        <li>Họ Red Hat dùng <code>.rpm</code>/<code>dnf</code>, họ Debian dùng <code>.deb</code>/<code>apt</code></li>
+        <li>Mọi thứ nằm dưới <code>/</code>; ổ đĩa được mount vào thư mục</li>
+        <li><code>sda</code> = ổ, <code>sda1</code> = phân vùng; tối thiểu cần <code>/</code> + swap</li>
+        <li>Luôn snapshot trước khi làm lab</li>
+      </ul>
+    </div>
+    <div class="stack">
+      <h3>Bài về nhà</h3>
+      <ol class="small">
+        <li>Hoàn thành Lab 1 (và Lab 2 nếu kịp)</li>
+        <li>Đọc lướt <code>man hier</code> (nhấn <kbd>q</kbd> để thoát)</li>
+        <li>Ghi lại kết quả <code>lsblk</code> và <code>df -h</code> của máy bạn</li>
+      </ol>
+      <div class="callout info"><span class="lbl">Buổi 02</span>Làm quen dòng lệnh: <code>cd</code>, <code>ls</code>, <code>pwd</code>, <code>man</code>, đường dẫn tuyệt đối/tương đối.</div>
+    </div>
+  </div>
+</section>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

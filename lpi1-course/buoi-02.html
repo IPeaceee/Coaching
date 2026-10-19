@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LPI-1 · Buổi 02 — Làm quen dòng lệnh</title>
+<link rel="stylesheet" href="assets/deck.css">
+</head>
+<body>
+
+<section class="slide title">
+  <div class="num">02</div>
+  <h1>Làm quen dòng lệnh &amp; di chuyển trong hệ thống</h1>
+  <p class="sub">Shell, dấu nhắc lệnh, cấu trúc câu lệnh, đường dẫn, <code>cd</code> · <code>ls</code> · <code>man</code> và xem thông tin phần cứng.</p>
+  <div class="chips"><span class="chip a">LPI-1 · Buổi 2/14</span><span class="chip lpi">103.1</span><span class="chip lpi">101.1</span><span class="chip lpi">104.7</span><span class="chip">~3 giờ</span><span class="chip">Lab: Khám phá hệ thống</span></div>
+  <div class="prompt">$ cd ~ &amp;&amp; ls -la</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Mục tiêu buổi học</p>
+  <h2>Sau buổi này bạn có thể…</h2>
+  <ul>
+    <li>Đọc được dấu nhắc lệnh và biết mình đang là ai, đang ở đâu</li>
+    <li>Viết đúng cấu trúc <code>lệnh [tùy chọn] [đối số]</code>; dùng đúng dấu nháy, biến và <code>export</code></li>
+    <li>Phân biệt đường dẫn <b>tuyệt đối</b> và <b>tương đối</b>; di chuyển bằng <code>cd</code></li>
+    <li>Đọc kết quả <code>ls -l</code> và tự tra cứu bằng <code>man</code>, <code>--help</code></li>
+    <li>Tìm vị trí lệnh (<code>which</code>, <code>whereis</code>, <code>locate</code>), xem phần cứng qua <code>/proc</code>, <code>/sys</code>, <code>lspci</code>, <code>lsmod</code></li>
+  </ul>
+  <div class="callout info"><span class="lbl">Ôn bài cũ (5 phút)</span>Thư mục nào chứa cấu hình? <code>/dev/sdb1</code> là gì? Lệnh tắt máy an toàn?</div>
+</section>
+
+<section class="slide" data-title="Hành trình">
+  <p class="kicker">Hành trình · server1 của Công ty ABC</p>
+  <h2>Buổi 02 nằm ở đâu?</h2>
+  <div class="journey">
+    <div class="past"><h3>Dùng lại từ trước</h3><ul class="small"><li>B1: server1 đã cài, đăng nhập được bằng root và user thường</li><li>B1: ý nghĩa <code>/etc</code>, <code>/home</code>, <code>/var</code>, <code>/dev</code></li></ul></div>
+    <div class="now"><h3>Hôm nay server1 có thêm</h3><ul class="small"><li>Bạn biết mình là ai, đang ở đâu trong server1</li><li><b>Hồ sơ phần cứng</b> server1: CPU, RAM, đĩa, card mạng và driver</li><li>Nắm quy tắc dấu nháy và biến – nền móng cho mọi buổi sau</li></ul></div>
+    <div class="next"><h3>Dùng tiếp ở</h3><ul class="small"><li>B3: tạo cây thư mục cho Công ty ABC</li><li>B5: dấu nháy trong <code>grep</code>, pipe</li><li>B13: biến và <code>$(…)</code> trong script sao lưu</li></ul></div>
+  </div>
+  <div class="objline">Mục tiêu LPI: <span class="chip lpi">103.1 Dòng lệnh · 4đ</span><span class="chip lpi">101.1 Phần cứng · 2đ</span><span class="chip lpi">104.7 Tìm file · 2đ</span></div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Terminal, shell và cách mở dòng lệnh</h2>
+  <div class="cols">
+    <div class="stack">
+      <p><b>Terminal</b>: cửa sổ để gõ chữ. <b>Shell</b>: chương trình đọc lệnh bạn gõ và chạy nó. Shell mặc định trên Linux là <b>bash</b>.</p>
+      <ul class="small">
+        <li>Máy server (không đồ họa): đăng nhập là có shell ngay</li>
+        <li>Chuyển console ảo: <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F1</kbd>…<kbd>F6</kbd></li>
+        <li>Desktop: <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd> (Ubuntu) hoặc <kbd>Alt</kbd>+<kbd>F2</kbd> → <code>gnome-terminal</code></li>
+        <li>Từ xa: SSH (buổi 13)</li>
+      </ul>
+    </div>
+    <pre class="term">
+$ echo $SHELL
+/bin/bash
+$ cat /etc/shells
+/bin/sh
+/bin/bash
+/usr/bin/sh
+/usr/bin/bash</pre>
+  </div>
+  <div class="callout legacy"><span class="lbl">Giao diện đồ họa (biết tên)</span>GNOME, KDE Plasma, XFCE, Cinnamon. Server thường không cài để tiết kiệm tài nguyên.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Đọc dấu nhắc lệnh (prompt)</h2>
+  <div class="center" style="margin-top:10px">
+    <span class="anno" style="font-size:52px"><span style="color:var(--amber)">[root</span><span class="muted">@</span><span style="color:var(--accent)">server1</span> <span style="color:var(--blue)">~</span><span class="muted">]</span><span style="color:var(--red)">#</span></span>
+  </div>
+  <div class="cols c3 small" style="margin-top:6px">
+    <div class="card"><h3 style="color:var(--amber)">root</h3>User đang đăng nhập</div>
+    <div class="card"><h3 style="color:var(--accent)">server1</h3>Tên máy (hostname)</div>
+    <div class="card"><h3 style="color:var(--blue)">~</h3>Thư mục hiện tại (<code>~</code> = thư mục home)</div>
+  </div>
+  <div class="cols">
+    <div class="callout warn"><span class="lbl"># = root</span>Siêu quản trị, làm được mọi thứ – kể cả xóa sạch hệ thống. Cẩn thận!</div>
+    <div class="callout"><span class="lbl">$ = user thường</span>Quyền hạn chế. Ubuntu hiển thị dạng <code>nhanle@ubuntu1:~$</code></div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Cấu trúc một câu lệnh</h2>
+  <div class="center"><span class="anno" style="font-size:40px"><span style="color:var(--accent)">ls</span>  <span style="color:var(--amber)">-l -h</span>  <span style="color:var(--blue)">/etc /tmp</span></span></div>
+  <div class="cols c3 small">
+    <div class="card"><h3 style="color:var(--accent)">Lệnh</h3>Chương trình cần chạy</div>
+    <div class="card"><h3 style="color:var(--amber)">Tùy chọn</h3><code>-l -h</code> = <code>-lh</code>; dạng dài: <code>--all</code></div>
+    <div class="card"><h3 style="color:var(--blue)">Đối số</h3>Đối tượng lệnh tác động: file, thư mục, user…</div>
+  </div>
+  <div class="cols">
+    <ul class="small">
+      <li>Phân biệt <b>HOA/thường</b>: <code>ls</code> ≠ <code>LS</code>, <code>File.txt</code> ≠ <code>file.txt</code></li>
+      <li>Các phần cách nhau bằng <b>khoảng trắng</b></li>
+      <li>Tên có dấu cách: <code>"My Docs"</code> hoặc <code>My\ Docs</code></li>
+    </ul>
+    <table class="small">
+      <tr><td><kbd>Tab</kbd></td><td>Tự hoàn thành lệnh / tên file</td></tr>
+      <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Lệnh đã gõ trước đó</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>Hủy lệnh đang chạy</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>L</kbd></td><td>Xóa màn hình (= <code>clear</code>)</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>A</kbd> / <kbd>E</kbd></td><td>Về đầu / cuối dòng</td></tr>
+    </table>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết · LPI 103.1</p>
+  <h2>Dấu nháy và ký tự đặc biệt (quoting)</h2>
+  <div class="cols">
+    <pre class="term">
+$ TEN=Linux
+$ echo "Xin chao $TEN"
+Xin chao Linux
+$ echo 'Xin chao $TEN'
+Xin chao $TEN
+$ echo Xin chao \$TEN
+Xin chao $TEN
+$ echo "Hom nay la $(date +%A)"
+Hom nay la Monday
+$ echo "*.conf"
+*.conf</pre>
+    <div class="stack small">
+      <table>
+        <tr><th>Cách viết</th><th>Shell xử lý bên trong thế nào</th></tr>
+        <tr><td><code>'...'</code></td><td>Giữ nguyên <b>mọi</b> ký tự</td></tr>
+        <tr><td><code>"..."</code></td><td>Giữ nguyên, <b>trừ</b> <code>$BIEN</code>, <code>$(lệnh)</code>, <code>`lệnh`</code>, <code>\</code></td></tr>
+        <tr><td><code>\x</code></td><td>Bỏ ý nghĩa đặc biệt của <b>một</b> ký tự</td></tr>
+        <tr><td>không nháy</td><td>Shell tách theo dấu cách, mở rộng <code>*</code> <code>?</code> <code>~</code> <code>$</code></td></tr>
+      </table>
+      <div class="callout tip"><span class="lbl">Quy tắc thực hành</span>Luôn đặt biến trong nháy kép: <code>"$FILE"</code> – không lỗi khi tên có dấu cách.</div>
+      <div class="callout link"><span class="lbl">Liên kết</span>B3 <code>find -name "*.txt"</code> · B5 <code>grep '^#'</code> · B13 script – đều dựa vào quy tắc này.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết · LPI 103.1</p>
+  <h2>Biến shell, biến môi trường và lệnh nội bộ</h2>
+  <div class="cols">
+    <pre class="term tight">
+$ BIEN=1                         # biến shell
+$ bash -c 'echo "con thay: $BIEN"'
+con thay:
+$ export BIEN                    # thành biến môi trường
+$ bash -c 'echo "con thay: $BIEN"'
+con thay: 1
+$ env | grep BIEN                # chỉ biến môi trường
+BIEN=1
+$ set | grep '^BIEN'             # biến shell + hàm
+BIEN=1
+$ unset BIEN
+$ type cd ls
+cd is a shell builtin
+ls is aliased to `ls --color=auto'
+$ type -a pwd
+pwd is a shell builtin
+pwd is /usr/bin/pwd</pre>
+    <div class="stack small">
+      <table class="cheat">
+        <tr><td>BIEN=gia_tri</td><td>Tạo biến (không dấu cách quanh <code>=</code>)</td></tr>
+        <tr><td>export BIEN</td><td>Cho tiến trình con thấy biến</td></tr>
+        <tr><td>env</td><td>In biến môi trường; <code>env -i cmd</code> chạy với môi trường rỗng</td></tr>
+        <tr><td>set</td><td>In mọi biến shell và hàm</td></tr>
+        <tr><td>unset BIEN</td><td>Xóa biến</td></tr>
+        <tr><td>type lệnh</td><td>Builtin, alias hay file?</td></tr>
+      </table>
+      <div class="callout"><span class="lbl">Lệnh nội bộ và lệnh ngoài</span><code>cd</code>, <code>echo</code>, <code>export</code> nằm sẵn trong bash. <code>ls</code>, <code>cp</code> là file trong <code>/usr/bin</code>, tìm theo <code>PATH</code> (B3). Lệnh ngoài PATH phải gõ đường dẫn: <code>./script.sh</code>.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Tôi là ai? Ai đang đăng nhập?</h2>
+  <div class="cols">
+    <pre class="term">
+# whoami
+root
+# id
+uid=0(root) gid=0(root) groups=0(root)
+# id nhanle
+uid=1000(nhanle) gid=1000(nhanle) groups=1000(nhanle),10(wheel)
+# who
+root     tty1   2026-10-19 08:02
+nhanle   pts/0  2026-10-19 08:10 (192.168.229.1)</pre>
+    <div class="stack small">
+      <table class="cheat">
+        <tr><td>whoami</td><td>Tên user hiện tại</td></tr>
+        <tr><td>id [user]</td><td>UID, nhóm chính (gid), các nhóm phụ</td></tr>
+        <tr><td>who / w</td><td>Ai đang đăng nhập (w kèm tải CPU)</td></tr>
+        <tr><td>hostname</td><td>Tên máy</td></tr>
+      </table>
+      <div class="callout tip"><span class="lbl">Ghi nhớ</span>root luôn có <b>uid=0</b>. User thường trên Rocky/Ubuntu bắt đầu từ <b>1000</b> (CentOS 6 cũ: 500).</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Đường dẫn tuyệt đối và tương đối</h2>
+  <div class="cols w4">
+    <pre class="tree">
+/
+├── etc/
+│   └── ssh/
+├── home/
+│   ├── nhanle/
+│   │   └── docs/
+│   └── test/
+├── root/
+└── var/
+    └── log/</pre>
+    <div class="stack small">
+      <div class="card"><h3>Tuyệt đối — bắt đầu bằng <code>/</code></h3>Đi từ gốc, đúng ở mọi nơi: <code>/home/nhanle/docs</code></div>
+      <div class="card"><h3>Tương đối — tính từ chỗ đang đứng</h3>Đang ở <code>/home</code> → <code>nhanle/docs</code></div>
+      <table>
+        <tr><td><code>.</code></td><td>Thư mục hiện tại</td></tr>
+        <tr><td><code>..</code></td><td>Thư mục cha (lùi 1 cấp)</td></tr>
+        <tr><td><code>~</code></td><td>Home của user hiện tại</td></tr>
+        <tr><td><code>~test</code></td><td>Home của user <code>test</code></td></tr>
+        <tr><td><code>-</code></td><td>Thư mục vừa ở trước đó (với <code>cd</code>)</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Di chuyển với <code>cd</code> và <code>pwd</code></h2>
+  <div class="cols">
+    <pre class="term">
+[root@server1 ~]# pwd
+/root
+[root@server1 ~]# cd /var/log
+[root@server1 log]# cd ..
+[root@server1 var]# pwd
+/var
+[root@server1 var]# cd ../etc/ssh
+[root@server1 ssh]# cd -
+/var
+[root@server1 var]# cd
+[root@server1 ~]# cd ~nhanle; pwd
+/home/nhanle</pre>
+    <div class="stack small">
+      <table class="cheat">
+        <tr><td>pwd</td><td>In thư mục hiện tại</td></tr>
+        <tr><td>cd /đường/dẫn</td><td>Đi tới đường dẫn tuyệt đối</td></tr>
+        <tr><td>cd ..</td><td>Lùi 1 cấp</td></tr>
+        <tr><td>cd ../..</td><td>Lùi 2 cấp</td></tr>
+        <tr><td>cd hoặc cd ~</td><td>Về home</td></tr>
+        <tr><td>cd -</td><td>Quay lại chỗ cũ</td></tr>
+      </table>
+      <div class="callout"><span class="lbl">Home ở đâu?</span>root: <code>/root</code> · user khác: <code>/home/&lt;tên&gt;</code></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Liệt kê với <code>ls</code> và đọc kết quả <code>ls -l</code></h2>
+  <pre class="term">
+$ ls -lh /etc/hosts /etc/ssh
+-rw-r--r--. 1 root root 158 Jun 23  2025 /etc/hosts
+drwxr-xr-x. 4 root root 4.0K Oct 19 08:00 /etc/ssh</pre>
+  <table class="grid small">
+    <tr><th>-rw-r--r--</th><th>1</th><th>root</th><th>root</th><th>158</th><th>Jun 23 2025</th><th>/etc/hosts</th></tr>
+    <tr><td>Loại + quyền (<code>d</code> = thư mục, <code>-</code> = file, <code>l</code> = link)</td><td>Số link</td><td>User sở hữu</td><td>Nhóm sở hữu</td><td>Kích thước</td><td>Thời gian sửa</td><td>Tên</td></tr>
+  </table>
+  <table class="cheat small">
+    <tr><td>ls -a</td><td>Hiện cả file ẩn (tên bắt đầu bằng <code>.</code>)</td><td>ls -lh</td><td>Kích thước dễ đọc (K, M, G)</td></tr>
+    <tr><td>ls -ld /etc</td><td>Thông tin của chính thư mục</td><td>ls -lt</td><td>Sắp xếp theo thời gian (mới nhất trước)</td></tr>
+    <tr><td>ls -R</td><td>Liệt kê đệ quy cả thư mục con</td><td>ls -lS</td><td>Sắp xếp theo kích thước</td></tr>
+  </table>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Tự tra cứu: <code>man</code>, <code>--help</code>, <code>info</code></h2>
+  <div class="cols">
+    <div class="stack small">
+      <pre class="term">
+$ man ls
+$ ls --help | less
+$ man -k password     # tìm man page theo từ khóa
+$ man 5 passwd        # mục 5: định dạng file</pre>
+      <table>
+        <tr><th>Phím trong man</th><th></th></tr>
+        <tr><td><kbd>Space</kbd> / <kbd>b</kbd></td><td>Trang sau / trước</td></tr>
+        <tr><td><kbd>/</kbd>từ</td><td>Tìm “từ”, <kbd>n</kbd> = kết quả tiếp</td></tr>
+        <tr><td><kbd>q</kbd></td><td>Thoát</td></tr>
+      </table>
+    </div>
+    <div class="stack small">
+      <table>
+        <tr><th>Mục man</th><th>Nội dung</th></tr>
+        <tr><td>1</td><td>Lệnh của người dùng</td></tr>
+        <tr><td>5</td><td>Định dạng file cấu hình</td></tr>
+        <tr><td>8</td><td>Lệnh quản trị hệ thống</td></tr>
+      </table>
+      <div class="callout tip"><span class="lbl">Thói quen tốt</span>Gặp lệnh lạ → <code>lệnh --help</code> trước, cần chi tiết → <code>man lệnh</code>.</div>
+      <div class="callout warn"><span class="lbl">Rocky Minimal</span>Nếu báo thiếu: <code>dnf install man-pages man-db</code></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Lệnh này nằm ở đâu? <code>which</code> · <code>whereis</code> · <code>type</code> · <code>locate</code></h2>
+  <div class="cols">
+    <pre class="term">
+$ which ping
+/usr/bin/ping
+$ whereis ping
+ping: /usr/bin/ping /usr/share/man/man8/ping.8.gz
+$ type ll
+ll is aliased to `ls -l --color=auto'
+# dnf install -y plocate
+# updatedb
+$ locate sshd_config
+/etc/ssh/sshd_config</pre>
+    <table class="cheat small">
+      <tr><td>which</td><td>Đường dẫn file thực thi sẽ được chạy</td></tr>
+      <tr><td>whereis</td><td>File thực thi + man page + source</td></tr>
+      <tr><td>type</td><td>Cho biết là alias, lệnh có sẵn của shell hay file</td></tr>
+      <tr><td>locate</td><td>Tìm theo tên trong cơ sở dữ liệu (rất nhanh). Cập nhật bằng <code>updatedb</code></td></tr>
+    </table>
+  </div>
+  <div class="callout info"><span class="lbl">locate vs find</span><code>locate</code> nhanh nhưng có thể “cũ”; <code>find</code> (buổi 3) chậm hơn nhưng quét thực tế. Thư mục <code>updatedb</code> bỏ qua khai báo ở <code>/etc/updatedb.conf</code> (PRUNEPATHS).</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Xem thông tin phần cứng &amp; hệ thống</h2>
+  <div class="cols">
+    <table class="cheat small">
+      <tr><td>lscpu</td><td>Thông tin CPU, số core</td></tr>
+      <tr><td>cat /proc/cpuinfo</td><td>Chi tiết từng CPU</td></tr>
+      <tr><td>free -h</td><td>RAM &amp; swap</td></tr>
+      <tr><td>cat /proc/meminfo</td><td>Chi tiết bộ nhớ</td></tr>
+      <tr><td>uname -a</td><td>Kernel, kiến trúc</td></tr>
+      <tr><td>cat /proc/version</td><td>Phiên bản kernel</td></tr>
+      <tr><td>lsblk</td><td>Ổ đĩa &amp; phân vùng</td></tr>
+      <tr><td>cat /proc/partitions</td><td>Phân vùng kernel thấy</td></tr>
+      <tr><td>df -h</td><td>Dung lượng đã dùng/trống</td></tr>
+      <tr><td>lspci · lsusb</td><td>Thiết bị PCI / USB</td></tr>
+    </table>
+    <pre class="term">
+$ nproc
+2
+$ free -h
+       total  used  free  shared  buff/cache  available
+Mem:   1.7Gi  412Mi 1.1Gi  8.0Mi   318Mi      1.3Gi
+Swap:  2.0Gi     0B 2.0Gi
+$ df -h /
+Filesystem  Size  Used Avail Use% Mounted on
+/dev/sda3    17G  1.6G   16G  10% /</pre>
+  </div>
+  <div class="callout"><span class="lbl">/proc là gì?</span>Thư mục “ảo” do kernel tạo ra trong RAM – đọc file trong đó là hỏi kernel về trạng thái hệ thống.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết · LPI 101.1</p>
+  <h2>Phần cứng nhìn từ Linux: /proc, /sys, /dev, udev</h2>
+  <div class="cols">
+    <pre class="term tight">
+$ lspci -k | grep -A2 -i ethernet
+0b:00.0 Ethernet controller: VMware VMXNET3 Ethernet Controller
+	Subsystem: VMware VMXNET3 Ethernet Controller
+	Kernel driver in use: vmxnet3
+$ lsusb -t                     # cây thiết bị USB
+$ lsmod | head -3              # module kernel đang nạp
+Module                  Size  Used by
+vmxnet3                86016  0
+# modinfo vmxnet3 | head -2
+# modprobe -r pcspkr ; modprobe pcspkr
+$ ls /sys/class/net
+ens160  lo
+# udevadm monitor              # cắm USB để xem sự kiện</pre>
+    <div class="stack small">
+      <table>
+        <tr><td><code>/proc</code></td><td>Thông tin tiến trình và kernel (ảo, trong RAM)</td></tr>
+        <tr><td><code>/sys</code></td><td><b>sysfs</b>: cây thiết bị, driver, bus kernel nhận được</td></tr>
+        <tr><td><code>/dev</code></td><td>File thiết bị, do <b>udev</b> tạo khi phát hiện thiết bị (hotplug); quy tắc ở <code>/etc/udev/rules.d</code></td></tr>
+        <tr><td><b>dbus</b></td><td>Kênh để tiến trình báo sự kiện cho nhau (vd báo desktop có USB mới)</td></tr>
+      </table>
+      <div class="callout"><span class="lbl">Thiết bị lưu trữ</span>HDD/SSD SATA, USB → <code>/dev/sdX</code> · NVMe → <code>/dev/nvme0n1</code> · thẻ SD → <code>/dev/mmcblk0</code>.</div>
+      <div class="callout tip"><span class="lbl">Bật/tắt thiết bị</span>Thiết bị tích hợp (âm thanh, cổng COM) bật/tắt trong BIOS/UEFI. Chặn 1 driver: <code>blacklist ten</code> trong <code>/etc/modprobe.d/</code>.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab · 50 phút</p>
+  <h2>Khám phá hệ thống của bạn</h2>
+  <ol class="steps small">
+    <li>Đăng nhập bằng user thường. Chạy <code>whoami</code>, <code>id</code>, <code>pwd</code> – ghi lại kết quả</li>
+    <li>Đi tới <code>/var/log</code> bằng đường dẫn tuyệt đối, sau đó tới <code>/etc/ssh</code> bằng đường dẫn <b>tương đối</b></li>
+    <li>Quay về home bằng 2 cách khác nhau. Dùng <code>cd -</code> để quay lại <code>/etc/ssh</code></li>
+    <li>Liệt kê <b>tất cả</b> file (cả file ẩn) trong home, dạng dài, kích thước dễ đọc</li>
+    <li>Xem thông tin của chính thư mục <code>/etc</code> (không liệt kê nội dung bên trong)</li>
+    <li>Tìm file thực thi của <code>passwd</code> và <code>ssh</code>; mở <code>man passwd</code>, tìm từ “lock”</li>
+    <li>Lập <b>hồ sơ server1</b>: số core, RAM, swap, kernel, dung lượng trống <code>/</code> và <code>/home</code>, driver card mạng (<code>lspci -k</code>)</li>
+    <li>Chuyển sang root bằng <code>su -</code>, chạy lại <code>id</code>, rồi <code>exit</code> để quay về</li>
+  </ol>
+</section>
+
+<section class="slide">
+  <p class="kicker ex">Bài tập</p>
+  <h2>Thử thách</h2>
+  <ol class="ex small">
+    <li>Đang ở <code>/var/log</code>. Viết lệnh <code>cd</code> bằng đường dẫn tương đối để tới <code>/etc/ssh</code>.
+      <details class="answer"><summary>Đáp án</summary><code>cd ../../etc/ssh</code></details></li>
+    <li>Liệt kê file trong <code>/etc</code>, file sửa gần nhất nằm trên cùng.
+      <details class="answer"><summary>Đáp án</summary><code>ls -lt /etc</code></details></li>
+    <li>Vì sao <code>ls /etc</code> và <code>ls -ld /etc</code> cho kết quả khác nhau?
+      <details class="answer"><summary>Đáp án</summary><code>ls /etc</code> liệt kê <b>nội dung</b> bên trong; <code>-d</code> hiển thị thông tin của <b>chính thư mục</b> /etc.</details></li>
+    <li>Lệnh <code>ll</code> có phải là một chương trình riêng không? Kiểm tra thế nào?
+      <details class="answer"><summary>Đáp án</summary>Không, là alias của <code>ls -l</code>. Kiểm tra bằng <code>type ll</code> hoặc <code>alias</code>.</details></li>
+    <li>Máy có bao nhiêu MB RAM còn khả dụng?
+      <details class="answer"><summary>Đáp án</summary><code>free -m</code> → cột <b>available</b>.</details></li>
+    <li>Tạo file tên <code>bao cao.txt</code> (có dấu cách) rồi liệt kê nó.
+      <details class="answer"><summary>Đáp án</summary><code>touch "bao cao.txt"; ls -l "bao cao.txt"</code> (hoặc <code>bao\ cao.txt</code>)</details></li>
+  </ol>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lỗi thường gặp</p>
+  <h2>Đọc thông báo lỗi – đừng hoảng</h2>
+  <pre class="term">
+$ LS
+bash: LS: command not found
+$ cd /ect
+bash: cd: /ect: No such file or directory
+$ cd /root
+bash: cd: /root: Permission denied
+$ cat bao cao.txt
+cat: bao: No such file or directory
+cat: cao.txt: No such file or directory</pre>
+  <table class="small">
+    <tr><th>Thông báo</th><th>Nghĩa thường gặp</th></tr>
+    <tr><td><code>command not found</code></td><td>Gõ sai tên, sai HOA/thường, hoặc chưa cài gói</td></tr>
+    <tr><td><code>No such file or directory</code></td><td>Sai đường dẫn – dùng <kbd>Tab</kbd> để tránh gõ sai</td></tr>
+    <tr><td><code>Permission denied</code></td><td>Không đủ quyền – học ở buổi 9</td></tr>
+  </table>
+</section>
+
+<section class="slide" data-title="Trắc nghiệm nhanh">
+  <p class="kicker ex">Trắc nghiệm nhanh · 5 phút</p>
+  <h2>Kiểm tra trước khi về</h2>
+  <ol class="ex small">
+    <li>Sau <code>TEN=ABC</code>, <code>echo 'Xin chao $TEN'</code> in ra gì?
+      <details class="answer"><summary>Đáp án</summary><code>Xin chao $TEN</code> – nháy đơn không mở rộng biến.</details></li>
+    <li>Thành phần nào tạo file trong <code>/dev</code> khi cắm USB?
+      <details class="answer"><summary>Đáp án</summary>udev.</details></li>
+    <li><code>locate</code> không thấy file vừa tạo. Làm gì?
+      <details class="answer"><summary>Đáp án</summary>Chạy <code>updatedb</code> (với quyền root).</details></li>
+  </ol>
+  <div class="chips"><a class="btn" href="quiz.html?b=2">Làm đủ 14 câu của buổi 02 →</a><a class="btn ghost" href="quiz.html?obj=103.1">Luyện mục tiêu 103.1</a></div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Tổng kết</p>
+  <h2>Bảng lệnh buổi 02 &amp; bài về nhà</h2>
+  <div class="cols">
+    <table class="cheat small">
+      <tr><td>whoami · id · who</td><td>Thông tin user</td></tr>
+      <tr><td>pwd · cd</td><td>Vị trí &amp; di chuyển</td></tr>
+      <tr><td>ls -lah · ls -ld</td><td>Liệt kê</td></tr>
+      <tr><td>man · --help</td><td>Tra cứu</td></tr>
+      <tr><td>which · whereis · locate</td><td>Tìm vị trí lệnh/file</td></tr>
+      <tr><td>lscpu · free -h · df -h</td><td>Phần cứng, bộ nhớ, đĩa</td></tr>
+      <tr><td>lsblk · uname -r</td><td>Ổ đĩa, kernel</td></tr>
+      <tr><td>su - · exit</td><td>Đổi sang root / thoát</td></tr>
+    </table>
+    <div class="stack">
+      <h3>Bài về nhà</h3>
+      <ol class="small">
+        <li>Hoàn thành lab, chụp màn hình bước 7</li>
+        <li>Đọc <code>man ls</code>: tìm ý nghĩa của <code>-i</code>, <code>-F</code></li>
+        <li>Thực hành <kbd>Tab</kbd> cho đến khi thành phản xạ</li>
+      </ol>
+      <div class="callout info"><span class="lbl">Buổi 03</span>Tạo, sao chép, di chuyển, xóa, tìm kiếm file; alias, history, biến PATH.</div>
+    </div>
+  </div>
+</section>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

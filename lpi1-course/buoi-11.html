@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LPI-1 · Buổi 11 — Ổ đĩa, phân vùng &amp; mount</title>
+<link rel="stylesheet" href="assets/deck.css">
+</head>
+<body>
+
+<section class="slide title">
+  <div class="num">11</div>
+  <h1>Ổ đĩa, phân vùng, filesystem &amp; mount</h1>
+  <p class="sub"><code>lsblk</code> · <code>fdisk</code> · <code>mkfs</code> · <code>mount</code> · <code>/etc/fstab</code> · ISO · mount bind · CIFS · quota · LVM</p>
+  <div class="chips"><span class="chip a">LPI-1 · Buổi 11/14</span><span class="chip lpi">104.1</span><span class="chip lpi">104.2</span><span class="chip lpi">104.3</span><span class="chip lpi">102.1</span><span class="chip">~3 giờ</span><span class="chip">Lab: Gắn ổ mới · Bind read-only · Quota</span></div>
+  <div class="prompt"># mount -a &amp;&amp; df -h</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Mục tiêu buổi học</p>
+  <h2>Sau buổi này bạn có thể…</h2>
+  <div class="cols">
+    <ul>
+      <li>Chia phân vùng MBR/GPT bằng <code>fdisk</code>, <code>gdisk</code>, <code>parted</code></li>
+      <li>Tạo filesystem ext4, xfs, vfat, exFAT, swap; biết Btrfs</li>
+      <li>Kiểm tra, sửa filesystem: <code>df -i</code>, <code>fsck</code>, <code>tune2fs</code>, <code>xfs_repair</code></li>
+      <li>Mount tạm thời và cố định qua <code>/etc/fstab</code> (UUID, nhãn); mount unit của systemd</li>
+      <li>Mount đĩa CD/DVD, file ISO</li>
+    </ul>
+    <ul>
+      <li>Mount bind (kể cả chỉ đọc) – <b>câu 5 đề thi</b></li>
+      <li>Kết nối thư mục chia sẻ Windows (CIFS)</li>
+      <li>Giới hạn dung lượng user bằng quota</li>
+      <li>Tạo và mở rộng ổ logic LVM</li>
+    </ul>
+  </div>
+  <div class="callout warn"><span class="lbl">Chuẩn bị trước giờ học</span>Tắt VM → thêm ổ cứng mới <b>10 GB</b> → bật lại. Chụp snapshot <b>11-before-disk</b>. Ổ mới sẽ là <code>/dev/sdc</code>.</div>
+</section>
+
+<section class="slide" data-title="Hành trình">
+  <p class="kicker">Hành trình · server1 của Công ty ABC</p>
+  <h2>Buổi 11 nằm ở đâu?</h2>
+  <div class="journey">
+    <div class="past"><h3>Dùng lại từ trước</h3><ul class="small"><li>B1: sda/sdb, MBR/GPT, LVM là gì</li><li>B6: <code>dd</code> tạo file ảnh đĩa <code>/root/disk.img</code></li><li>B10: <code>/data</code> cần chỗ chứa riêng</li></ul></div>
+    <div class="now"><h3>Hôm nay server1 có thêm</h3><ul class="small"><li>Ổ thứ 3: <code>/data-hdd</code> (ext4), <code>/archive</code> (xfs)</li><li>Thư mục công khai <code>/public</code> chỉ đọc</li><li>Biết kiểm tra, sửa và đặt nhãn filesystem</li></ul></div>
+    <div class="next"><h3>Dùng tiếp ở</h3><ul class="small"><li>B13: <code>/archive</code> chứa bản sao lưu</li><li>B14: sửa fstab hỏng khi máy không boot</li><li>Đề thi câu 5: mount bind chỉ đọc</li></ul></div>
+  </div>
+  <div class="objline">Mục tiêu LPI: <span class="chip lpi">104.1 Phân vùng &amp; FS · 2đ</span><span class="chip lpi">104.2 Toàn vẹn FS · 2đ</span><span class="chip lpi">104.3 Mount · 3đ</span><span class="chip lpi">102.1 LVM</span> · Quota, CIFS <span class="out-tag">ngoài đề v5</span></div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Quy trình dùng một ổ đĩa mới</h2>
+  <div class="flow">
+    <div class="box blue">1 · Gắn ổ<small>VM: Add Hard Disk</small></div><div class="arrow">→</div>
+    <div class="box">2 · Nhận diện<small>lsblk · fdisk -l</small></div><div class="arrow">→</div>
+    <div class="box alt">3 · Phân vùng<small>fdisk / parted</small></div><div class="arrow">→</div>
+    <div class="box">4 · Định dạng<small>mkfs</small></div><div class="arrow">→</div>
+    <div class="box alt">5 · Mount<small>mount</small></div><div class="arrow">→</div>
+    <div class="box blue">6 · Cố định<small>/etc/fstab</small></div>
+  </div>
+  <div class="cols">
+    <pre class="term">
+# lsblk
+NAME   MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
+sda      8:0    0   20G  0 disk
+├─sda1   8:1    0    1G  0 part /boot
+├─sda2   8:2    0    2G  0 part [SWAP]
+└─sda3   8:3    0   17G  0 part /
+sdb      8:16   0   10G  0 disk
+└─sdb1   8:17   0   10G  0 part /home
+sdc      8:32   0   10G  0 disk            ← ổ mới
+sr0     11:0    1  1.8G  0 rom</pre>
+    <table class="cheat small">
+      <tr><td>lsblk</td><td>Cây ổ đĩa &amp; điểm mount</td></tr>
+      <tr><td>lsblk -f</td><td>Kèm loại filesystem, UUID</td></tr>
+      <tr><td>blkid</td><td>UUID, LABEL, TYPE</td></tr>
+      <tr><td>fdisk -l</td><td>Bảng phân vùng chi tiết</td></tr>
+      <tr><td>cat /proc/partitions</td><td>Danh sách kernel nhận</td></tr>
+      <tr><td>df -hT</td><td>Dung lượng + loại FS đã mount</td></tr>
+    </table>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Chia phân vùng với <code>fdisk</code></h2>
+  <div class="cols w6">
+    <pre class="term tight">
+# fdisk /dev/sdc
+Command (m for help): n
+Partition type
+   p   primary (0 primary, 0 extended, 4 free)
+   e   extended (container for logical partitions)
+Select (default p): p
+Partition number (1-4, default 1): 1
+First sector (2048-20971519, default 2048): <mark>Enter</mark>
+Last sector, +/-sectors or +/-size{K,M,G,T,P} ...: <mark>+4G</mark>
+Created a new partition 1 of type 'Linux' and of size 4 GiB.
+Command (m for help): p
+Device     Boot Start     End Sectors Size Id Type
+/dev/sdc1        2048 8390655 8388608   4G 83 Linux
+Command (m for help): w
+The partition table has been altered.</pre>
+    <div class="stack small">
+      <table>
+        <tr><th>Phím</th><th>Ý nghĩa</th></tr>
+        <tr><td><kbd>m</kbd></td><td>Menu trợ giúp</td></tr>
+        <tr><td><kbd>p</kbd></td><td>In bảng phân vùng</td></tr>
+        <tr><td><kbd>n</kbd></td><td>Tạo phân vùng mới</td></tr>
+        <tr><td><kbd>d</kbd></td><td>Xóa phân vùng</td></tr>
+        <tr><td><kbd>t</kbd></td><td>Đổi loại (82 swap, 8e LVM)</td></tr>
+        <tr><td><kbd>g</kbd> / <kbd>o</kbd></td><td>Bảng GPT / MBR mới</td></tr>
+        <tr><td><kbd>w</kbd> / <kbd>q</kbd></td><td><b>Ghi</b> / thoát không ghi</td></tr>
+      </table>
+      <div class="callout warn"><span class="lbl">Kiểm tra 2 lần</span>Chọn nhầm <code>/dev/sda</code> = mất hệ thống. Mọi thay đổi chỉ thật sự xảy ra khi bấm <kbd>w</kbd>.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ · LPI 104.1</p>
+  <h2>Bảng GPT với <code>gdisk</code> và <code>parted</code></h2>
+  <div class="cols">
+    <div class="stack small">
+      <h3>gdisk – giống fdisk, chuyên cho GPT</h3>
+      <pre class="term tight">
+# dnf install -y gdisk
+# gdisk /dev/sdd
+Command (? for help): o       # bảng GPT mới
+Command (? for help): n       # phân vùng mới
+Partition number (1-128, default 1):
+Last sector ...: +2G
+Hex code or GUID (L to show codes, Enter = 8300):
+Command (? for help): w       # ghi</pre>
+      <table>
+        <tr><td><code>8300</code> Linux</td><td><code>8200</code> swap</td><td><code>8e00</code> LVM</td><td><code>ef00</code> EFI (ESP)</td></tr>
+      </table>
+    </div>
+    <div class="stack small">
+      <h3>parted – chạy được bằng 1 dòng lệnh (dùng trong script)</h3>
+      <pre class="term tight">
+# parted /dev/sdd mklabel gpt
+# parted /dev/sdd mkpart data ext4 1MiB 2GiB
+# parted /dev/sdd mkpart backup xfs 2GiB 100%
+# parted /dev/sdd print
+Number  Start   End     Size    File system  Name    Flags
+ 1      1049kB  2147MB  2146MB               data
+ 2      2147MB  10.7GB  8590MB               backup</pre>
+      <div class="callout warn"><span class="lbl">parted ghi ngay</span>Không có bước “w” như fdisk/gdisk – mỗi lệnh có hiệu lực tức thì.</div>
+      <div class="callout"><span class="lbl">Chọn công cụ</span>MBR: fdisk · GPT: gdisk hoặc fdisk bản mới · Script: parted.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Tạo filesystem: <code>mkfs</code>, <code>mkswap</code></h2>
+  <div class="cols">
+    <div class="stack">
+      <pre class="term">
+# mkfs.ext4 /dev/sdc1          # = mkfs -t ext4 /dev/sdc1
+# mkfs.xfs /dev/sdc2
+# mkfs.vfat /dev/sdc3          # đọc được trên Windows
+# mkswap /dev/sdc4 ; swapon /dev/sdc4
+# swapon --show
+# lsblk -f /dev/sdc</pre>
+      <div class="callout warn"><span class="lbl">mkfs = format</span>Xóa sạch dữ liệu trên phân vùng đó.</div>
+    </div>
+    <table class="small">
+      <tr><th>Loại</th><th>Dùng khi</th></tr>
+      <tr><td><b>xfs</b></td><td>Mặc định RHEL/Rocky, file lớn, hiệu năng cao. Chỉ mở rộng, không thu nhỏ được</td></tr>
+      <tr><td><b>ext4</b></td><td>Mặc định Ubuntu/Debian, linh hoạt, thu nhỏ được</td></tr>
+      <tr><td>vfat / exfat</td><td>USB, trao đổi với Windows</td></tr>
+      <tr><td>ntfs</td><td>Ổ Windows (cần gói ntfs-3g)</td></tr>
+      <tr><td>iso9660</td><td>Đĩa CD/DVD, file ISO</td></tr>
+      <tr><td>swap</td><td>Bộ nhớ ảo</td></tr>
+      <tr><td>tmpfs</td><td>Filesystem trong RAM (<code>/run</code>, <code>/dev/shm</code>)</td></tr>
+    </table>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết · LPI 104.1</p>
+  <h2>Btrfs, exFAT, VFAT — thử trên VM Ubuntu</h2>
+  <div class="cols w6">
+    <pre class="term tight">
+$ sudo apt install -y btrfs-progs exfatprogs dosfstools
+$ for i in 1 2 3; do truncate -s 1G d$i.img; done
+$ sudo losetup -f --show d1.img      # lặp lại cho d2, d3
+/dev/loop1
+## Btrfs trên 2 thiết bị, dữ liệu + metadata soi gương
+$ sudo mkfs.btrfs -L KHO -d raid1 -m raid1 /dev/loop1 /dev/loop2
+$ sudo mkdir -p /mnt/kho
+$ sudo mount -o compress=zstd /dev/loop1 /mnt/kho
+$ sudo btrfs subvolume create /mnt/kho/@data
+$ sudo btrfs subvolume snapshot /mnt/kho/@data /mnt/kho/@data-snap
+$ sudo btrfs subvolume list /mnt/kho
+$ sudo btrfs filesystem show /mnt/kho
+$ sudo mkfs.exfat -L USB /dev/loop3      # hoặc mkfs.vfat -n USB</pre>
+    <div class="stack small">
+      <table>
+        <tr><th>Btrfs</th><th></th></tr>
+        <tr><td>Subvolume</td><td>“Thư mục” mount riêng được: <code>-o subvol=@data</code></td></tr>
+        <tr><td>Snapshot</td><td>Chụp trạng thái tức thì, chỉ tốn chỗ phần thay đổi</td></tr>
+        <tr><td>Nén</td><td>Trong suốt: <code>compress=zstd</code></td></tr>
+        <tr><td>Nhiều thiết bị</td><td>RAID 0/1/10 ngay trong filesystem</td></tr>
+      </table>
+      <table>
+        <tr><td><b>VFAT</b> (FAT32)</td><td>Mọi hệ điều hành, file ≤ 4 GB, ESP</td></tr>
+        <tr><td><b>exFAT</b></td><td>USB/thẻ nhớ lớn, file &gt; 4 GB</td></tr>
+      </table>
+      <div class="callout legacy"><span class="lbl">Vì sao dùng Ubuntu?</span>RHEL/Rocky 9 không hỗ trợ Btrfs. openSUSE và Fedora dùng Btrfs mặc định.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2><code>mount</code> và <code>umount</code></h2>
+  <div class="cols">
+    <pre class="term">
+# mkdir /data-hdd
+# echo sda &gt; /data-hdd/file-sda.txt
+# mount /dev/sdc1 /data-hdd     # -t ext4 tự nhận
+# ls /data-hdd
+lost+found                       ← file-sda.txt đâu?
+# findmnt /data-hdd
+TARGET    SOURCE    FSTYPE OPTIONS
+/data-hdd /dev/sdc1 ext4   rw,relatime,seclabel
+# cd /data-hdd ; umount /data-hdd
+umount: /data-hdd: target is busy.
+# cd ; umount /data-hdd
+# ls /data-hdd
+file-sda.txt                     ← vẫn còn nguyên</pre>
+    <div class="stack small">
+      <div class="callout"><span class="lbl">Mount “che” thư mục</span>Nội dung cũ của điểm mount bị <b>ẩn</b> (không mất) cho đến khi umount. Nên mount vào thư mục rỗng.</div>
+      <div class="callout tip"><span class="lbl">“target is busy”</span>Có ai đó (kể cả chính bạn) đang đứng trong thư mục hoặc mở file. Tìm bằng <code>lsof +D /data-hdd</code> hoặc <code>fuser -vm /data-hdd</code>.</div>
+      <table class="cheat">
+        <tr><td>mount</td><td>Liệt kê mọi mount</td></tr>
+        <tr><td>findmnt</td><td>Dạng cây, dễ đọc</td></tr>
+        <tr><td>mount -o ro …</td><td>Mount chỉ đọc</td></tr>
+        <tr><td>mount -o remount,rw /</td><td>Đổi tùy chọn khi đang mount</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2><code>/etc/fstab</code> — mount tự động khi khởi động</h2>
+  <pre class="file" data-file="/etc/fstab">#  1. Thiết bị                                2. Điểm mount  3. Loại  4. Tùy chọn                5. dump 6. fsck
+UUID=2b7c9e1a-4c1d-4b8e-9a51-0e6f3c2d1a77   /              xfs      defaults                   0 0
+UUID=6a0f...                                 /boot          xfs      defaults                   0 0
+UUID=1f3e...                                 none           swap     defaults                   0 0
+UUID=a1b2c3d4-0000-4000-8000-111122223333   /data-hdd      ext4     defaults                   0 2
+/dev/sr0                                     /mnt/cdrom     iso9660  ro,noauto                  0 0</pre>
+  <div class="cols">
+    <table class="small">
+      <tr><td><b>Cột 1</b></td><td>Thiết bị – nên dùng <code>UUID=</code> (lấy bằng <code>blkid</code>); tên <code>/dev/sdc1</code> có thể đổi khi thêm/bớt ổ</td></tr>
+      <tr><td><b>Cột 4</b></td><td><code>defaults</code> = rw, suid, dev, exec, auto, nouser, async. Thêm: <code>ro</code>, <code>noauto</code>, <code>nofail</code>, <code>_netdev</code>, <code>usrquota</code>…</td></tr>
+      <tr><td><b>Cột 5 · 6</b></td><td>dump (gần như luôn 0) · thứ tự fsck: 1 cho /, 2 cho phân vùng khác, 0 = bỏ qua</td></tr>
+    </table>
+    <div class="stack small">
+      <pre class="term">
+# blkid /dev/sdc1
+# vim /etc/fstab
+# systemctl daemon-reload
+# mount -a          # mount mọi dòng chưa mount
+# findmnt --verify  # kiểm tra lỗi cú pháp</pre>
+      <div class="callout warn"><span class="lbl">Sai fstab = máy không boot</span>Luôn chạy <code>mount -a</code> sau khi sửa. Không lỗi mới reboot.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ · LPI 104.3</p>
+  <h2>Nhãn, UUID, mount cho user thường và systemd mount unit</h2>
+  <div class="cols">
+    <div class="stack small">
+      <pre class="term tight">
+# e2label /dev/sdc1 DATA          # ext2/3/4 (= tune2fs -L)
+# xfs_admin -L ARCHIVE /dev/sdc2  # xfs, phải umount trước
+# blkid /dev/sdc1
+/dev/sdc1: LABEL="DATA" UUID="a1b2…" TYPE="ext4"
+# findfs LABEL=DATA
+/dev/sdc1</pre>
+      <pre class="file" data-file="/etc/fstab">LABEL=DATA   /data-hdd    ext4  defaults          0 2
+/dev/sdd1    /media/usb   vfat  noauto,user       0 0</pre>
+      <p>Tùy chọn <code>user</code>: user thường gõ <code>mount /media/usb</code> được (chỉ người mount được umount); <code>users</code>: ai cũng umount được. Cả hai ngầm thêm <code>noexec,nosuid,nodev</code>.</p>
+    </div>
+    <div class="stack small">
+      <h3>systemd đọc fstab và sinh ra “mount unit”</h3>
+      <pre class="term tight">
+$ systemctl list-units -t mount | grep data
+data\x2dhdd.mount  loaded active mounted /data-hdd</pre>
+      <pre class="file tight" data-file="/etc/systemd/system/srv-share.mount">[Mount]
+What=LABEL=DATA
+Where=/srv/share
+Type=ext4
+Options=defaults
+
+[Install]
+WantedBy=multi-user.target</pre>
+      <p class="muted">Tên file phải khớp điểm mount: <code>/srv/share</code> → <code>srv-share.mount</code>. Bật: <code>systemctl enable --now srv-share.mount</code>.</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ · LPI 104.2</p>
+  <h2>Kiểm tra và sửa filesystem</h2>
+  <div class="cols w6">
+    <pre class="term tight">
+$ df -h /data-hdd ; df -i /data-hdd    # dung lượng · inode
+Filesystem  Inodes IUsed IFree IUse% Mounted on
+/dev/sdc1   262144    12 262132   1% /data-hdd
+$ du -sh /var/* 2&gt;/dev/null | sort -h | tail -3
+# umount /data-hdd                     # KHÔNG fsck khi đang mount
+# fsck /dev/sdc1                       # gọi e2fsck vì là ext4
+# e2fsck -f /dev/sdc1                  # -f ép kiểm, -n chỉ xem, -y tự sửa
+# tune2fs -l /dev/sdc1 | grep -Ei 'mount count|volume name'
+# tune2fs -c 30 /dev/sdc1              # fsck tự chạy sau 30 lần mount
+# mke2fs -t ext4 -L DATA /dev/sdc1     # = mkfs.ext4 (xóa dữ liệu!)
+# umount /archive ; xfs_repair -n /dev/sdc2   # -n: chỉ kiểm tra
+# mount /archive ; xfs_fsr /archive    # chống phân mảnh xfs
+# xfs_db -r -c 'sb 0' -c 'p blocksize' /dev/sdc2</pre>
+    <div class="stack small">
+      <table class="cheat">
+        <tr><td>df -h · df -i</td><td>Dung lượng · inode còn trống</td></tr>
+        <tr><td>du -sh</td><td>Dung lượng thư mục</td></tr>
+        <tr><td>fsck / e2fsck</td><td>Kiểm tra, sửa ext2/3/4</td></tr>
+        <tr><td>tune2fs</td><td>Xem/chỉnh tham số ext (nhãn, số lần mount…)</td></tr>
+        <tr><td>xfs_repair</td><td>Sửa xfs (khi đã umount)</td></tr>
+        <tr><td>xfs_fsr · xfs_db</td><td>Chống phân mảnh · gỡ lỗi mức thấp</td></tr>
+      </table>
+      <p class="xs muted">Cột 6 trong fstab quyết định fsck có chạy lúc boot không.</p>
+      <div class="callout warn"><span class="lbl">Hết inode</span>Nhiều file nhỏ có thể dùng hết inode khi <code>df -h</code> vẫn còn chỗ → “No space left on device”.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Đĩa CD/DVD và file ISO</h2>
+  <div class="cols w6">
+    <div class="stack">
+      <pre class="term">
+# ls -l /dev/cdrom
+lrwxrwxrwx. 1 root root 3 /dev/cdrom -&gt; sr0
+# mkdir -p /mnt/cdrom /mnt/iso
+# mount /dev/sr0 /mnt/cdrom
+mount: /mnt/cdrom: WARNING: source write-protected, mounted read-only.
+# ls /mnt/cdrom
+AppStream  BaseOS  EFI  images  isolinux  ...
+## Tạo file ISO từ đĩa (umount trước)
+# umount /mnt/cdrom
+# dd if=/dev/sr0 of=/root/rocky.iso bs=4M status=progress
+## Mount file ISO: tùy chọn loop
+# mount -o loop /root/rocky.iso /mnt/iso</pre>
+    </div>
+    <div class="stack small">
+      <div class="callout tip"><span class="lbl">Ứng dụng: kho phần mềm offline</span>
+<pre class="file" data-file="/etc/yum.repos.d/local-iso.repo">[local-baseos]
+name=BaseOS tu ISO
+baseurl=file:///mnt/iso/BaseOS
+gpgcheck=0
+enabled=1</pre></div>
+      <div class="callout legacy"><span class="lbl">Sửa ghi chú gốc</span><code>dd if=/mnt/DATA1 of=/dev/null</code> <b>không</b> xóa gì – chỉ đọc rồi bỏ đi. Lệnh xóa trắng ổ là <code>dd if=/dev/zero of=/dev/sdX</code> – cực kỳ nguy hiểm, chỉ dùng khi chắc chắn.</div>
+      <p class="muted">VMware Tools ngày nay thay bằng gói <code>open-vm-tools</code> (<code>dnf install open-vm-tools</code>).</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ · câu 5 đề thi</p>
+  <h2>Mount bind — “gắn” một thư mục vào chỗ khác</h2>
+  <div class="cols">
+    <div class="stack">
+      <pre class="term">
+# mkdir /source-folder /destination-folder
+# echo bind &gt; /source-folder/bind-mount.txt
+# mount --bind /source-folder /destination-folder
+# ls /destination-folder
+bind-mount.txt
+## Bản chỉ đọc cho người khác xem
+# mount -o remount,bind,ro /destination-folder
+# rm -f /destination-folder/bind-mount.txt
+rm: cannot remove '...': Read-only file system
+# echo moi &gt; /source-folder/moi.txt     # nguồn vẫn ghi được
+# ls /destination-folder
+bind-mount.txt  moi.txt</pre>
+    </div>
+    <div class="stack small">
+      <p>Một nội dung, hai đường dẫn. Phía nguồn sửa được, phía đích chỉ đọc – dùng để “phát hành” dữ liệu an toàn.</p>
+      <pre class="file" data-file="/etc/fstab — bind cố định">/source-folder  /destination-folder  none  bind,ro  0 0</pre>
+      <div class="callout legacy"><span class="lbl">Ghi chú gốc</span>Dùng 2 dòng: <code>bind</code> rồi <code>remount,bind,ro</code>. Từ util-linux 2.27 (Rocky 8/9, Ubuntu 18.04+) chỉ cần 1 dòng <code>bind,ro</code>.</div>
+      <pre class="term">
+# umount /destination-folder ; mount -a
+# findmnt /destination-folder</pre>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ <span class="out-tag">ngoài đề LPIC-1</span></p>
+  <h2>Kết nối thư mục chia sẻ Windows (CIFS/SMB)</h2>
+  <pre class="term">
+# dnf install -y cifs-utils ; mkdir /mnt/Software
+# mount -t cifs //192.168.229.1/Software /mnt/Software -o username=student
+Password for student@//192.168.229.1/Software:
+# ls /mnt/Software ; umount /mnt/Software</pre>
+  <pre class="file" data-file="/etc/fstab">//192.168.229.1/Software  /mnt/Software  cifs  credentials=/root/.smbcred,_netdev,nofail  0 0</pre>
+  <div class="cols">
+    <pre class="file" data-file="/root/.smbcred   (chmod 600)">username=student
+password=123456</pre>
+    <div class="stack small">
+      <table>
+        <tr><td><code>_netdev</code></td><td>Chờ có mạng rồi mới mount</td></tr>
+        <tr><td><code>nofail</code></td><td>Không mount được vẫn boot bình thường</td></tr>
+        <tr><td><code>credentials=</code></td><td>Không để mật khẩu lộ trong fstab (file 644 ai cũng đọc)</td></tr>
+      </table>
+      <div class="callout tip"><span class="lbl">Chuẩn bị trên máy Windows</span>Chia sẻ thư mục <code>Software</code> (Properties → Sharing), tạo user <code>student</code>. Lỗi kết nối → thử thêm <code>vers=3.0</code>.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Mở rộng <span class="out-tag">đã bỏ khỏi đề LPIC-1 v5</span></p>
+  <h2>Disk quota — giới hạn dung lượng mỗi user</h2>
+  <div class="cols w6">
+    <pre class="term tight">
+# dnf install -y quota
+## fstab: thêm usrquota,grpquota vào cột 4 của /data-hdd
+# systemctl daemon-reload ; mount -o remount /data-hdd
+# quotacheck -cugm /data-hdd     # tạo aquota.user/.group
+# quotaon -v /data-hdd
+# setquota -u user1 10240 11000 0 0 /data-hdd
+# edquota -u user2               # sửa bằng trình soạn thảo
+# edquota -t                     # thời gian gia hạn (grace)
+# repquota -s /data-hdd
+User     used   soft   hard  grace   used soft hard
+user1  --  0K 10240K 11000K           1    0    0
+# mkdir /data-hdd/user1 ; chown user1 /data-hdd/user1
+[user1@server1 ~]$ dd if=/dev/zero of=/data-hdd/user1/big bs=1M count=20
+dd: error writing '/data-hdd/user1/big': Disk quota exceeded</pre>
+    <div class="stack small">
+      <table>
+        <tr><td><b>soft</b></td><td>Ngưỡng cảnh báo – được vượt trong thời gian grace (mặc định 7 ngày)</td></tr>
+        <tr><td><b>hard</b></td><td>Trần tuyệt đối – không thể vượt</td></tr>
+        <tr><td><b>blocks</b></td><td>Dung lượng (đơn vị KB)</td></tr>
+        <tr><td><b>inodes</b></td><td>Số lượng file</td></tr>
+      </table>
+      <div class="callout legacy"><span class="lbl">Ghi chú gốc</span>Làm quota trên <code>/</code> (ext3). Rocky 9 có <code>/</code> là XFS – quota XFS dùng <code>uquota</code> + <code>xfs_quota</code>, nên lab làm trên phân vùng ext4 mới.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ · LPI 102.1 (tính năng cơ bản của LVM)</p>
+  <h2>LVM thực hành nhanh</h2>
+  <div class="cols">
+    <pre class="term tight">
+# pvcreate /dev/sdc3
+  Physical volume "/dev/sdc3" successfully created.
+# vgcreate vgdata /dev/sdc3
+# lvcreate -n lvweb -L 1G vgdata
+# mkfs.xfs /dev/vgdata/lvweb
+# mkdir /web ; mount /dev/vgdata/lvweb /web
+# df -h /web
+/dev/mapper/vgdata-lvweb 1014M  40M  975M  4% /web
+## Hết chỗ? Mở rộng ngay khi đang chạy
+# lvextend -r -L +1G /dev/vgdata/lvweb
+# df -h /web
+/dev/mapper/vgdata-lvweb  2.0G  47M  2.0G  3% /web
+# pvs ; vgs ; lvs</pre>
+    <div class="stack small">
+      <div class="flow vert">
+        <div class="box blue">/dev/sdc3 → PV (<code>pvcreate</code>)</div>
+        <div class="box alt">PV → VG <b>vgdata</b> (<code>vgcreate</code>, thêm ổ: <code>vgextend</code>)</div>
+        <div class="box">VG → LV <b>lvweb</b> (<code>lvcreate</code>, <code>lvextend</code>)</div>
+      </div>
+      <div class="callout tip"><span class="lbl"><code>-r</code> = resize filesystem</span><code>lvextend -r</code> nới LV <b>và</b> filesystem trong 1 lệnh (xfs lẫn ext4).</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab A · 45 phút</p>
+  <h2>Gắn ổ đĩa mới cố định</h2>
+  <ol class="steps small">
+    <li>Xác định ổ mới bằng <code>lsblk</code> (giả sử <code>/dev/sdc</code>, 10 GB)</li>
+    <li>Tạo 3 phân vùng primary: <b>sdc1</b> 4 GB · <b>sdc2</b> 3 GB · <b>sdc3</b> phần còn lại, loại LVM (<code>t</code> → <code>8e</code>)</li>
+    <li>Định dạng: sdc1 → <b>ext4</b>, sdc2 → <b>xfs</b></li>
+    <li>Tạo <code>/data-hdd</code> và <code>/archive</code>, mount sdc1 và sdc2 vào đó</li>
+    <li>Thêm 2 dòng vào <code>/etc/fstab</code> bằng <b>UUID</b>; <code>umount</code> cả hai rồi <code>mount -a</code> để kiểm tra</li>
+    <li>Reboot, kiểm tra bằng <code>df -hT</code></li>
+    <li>(Mở rộng) Dùng sdc3 làm LVM theo slide trước, mount <code>/web</code> cố định</li>
+  </ol>
+  <details class="answer"><summary>Gợi ý fstab</summary>
+  <pre class="term">
+# blkid /dev/sdc1 /dev/sdc2
+# echo "UUID=$(blkid -s UUID -o value /dev/sdc1)  /data-hdd  ext4  defaults  0 2" &gt;&gt; /etc/fstab
+# echo "UUID=$(blkid -s UUID -o value /dev/sdc2)  /archive   xfs   defaults  0 2" &gt;&gt; /etc/fstab
+# systemctl daemon-reload ; mount -a ; df -hT | grep -E 'data-hdd|archive'</pre></details>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab B · 30 phút</p>
+  <h2>ISO, bind read-only và quota</h2>
+  <div class="cols">
+    <ol class="steps small">
+      <li>Mount <code>/dev/sr0</code> vào <code>/mnt/cdrom</code>, liệt kê nội dung, umount</li>
+      <li>Tạo <code>/root/rocky.iso</code> bằng <code>dd</code>, mount bằng <code>-o loop</code> vào <code>/mnt/iso</code></li>
+      <li>Tạo <code>/srv/share</code> có vài file. Bind sang <code>/public</code> <b>chỉ đọc</b>, cố định qua fstab</li>
+      <li>Chứng minh: ghi vào <code>/public</code> thất bại, ghi vào <code>/srv/share</code> thì <code>/public</code> thấy ngay</li>
+      <li>(Mở rộng) Bật quota cho <code>/data-hdd</code>; user1: soft 10 MB, hard 11 MB; thử vượt quota</li>
+    </ol>
+    <details class="answer"><summary>Gợi ý bước 3–4</summary>
+    <pre class="term">
+# mkdir -p /srv/share /public
+# touch /srv/share/{a,b,c}.txt
+# echo "/srv/share  /public  none  bind,ro  0 0" &gt;&gt; /etc/fstab
+# systemctl daemon-reload ; mount -a
+# touch /public/x
+touch: cannot touch '/public/x': Read-only file system
+# touch /srv/share/d.txt ; ls /public
+a.txt  b.txt  c.txt  d.txt</pre></details>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab C · 35 phút · không cần thêm ổ thật</p>
+  <h2>Ổ đĩa ảo: GPT, nhãn, fsck và “hết inode”</h2>
+  <div class="cols w6">
+    <ol class="steps small">
+      <li>Dùng file <code>/root/disk.img</code> 1 GB tạo ở B6 (chưa có thì tạo bằng <code>dd</code>)</li>
+      <li><code>losetup -fP --show /root/disk.img</code> → nhận thiết bị <code>/dev/loop0</code></li>
+      <li><code>gdisk /dev/loop0</code>: bảng GPT, phân vùng 1 = 300 MB, phân vùng 2 = phần còn lại</li>
+      <li><code>mkfs.ext4 -N 2000 -L THU /dev/loop0p1</code> (chỉ 2000 inode) · <code>mkfs.xfs -L LUU /dev/loop0p2</code></li>
+      <li>Mount bằng nhãn: <code>mount LABEL=THU /mnt/thu</code>. Tạo 3000 file rỗng – lỗi gì? So sánh <code>df -h</code> và <code>df -i</code></li>
+      <li>umount, chạy <code>e2fsck -f</code>, <code>tune2fs -l</code>, <code>xfs_repair -n</code></li>
+      <li>Dọn dẹp: <code>umount</code>, <code>losetup -d /dev/loop0</code></li>
+    </ol>
+    <details class="answer"><summary>Gợi ý lời giải</summary>
+    <pre class="term tight">
+# losetup -fP --show /root/disk.img
+/dev/loop0
+# gdisk /dev/loop0          # o, n(+300M), n(Enter), w
+# lsblk /dev/loop0
+# mkfs.ext4 -N 2000 -L THU /dev/loop0p1
+# mkfs.xfs -L LUU /dev/loop0p2
+# mkdir -p /mnt/thu ; mount LABEL=THU /mnt/thu
+# touch /mnt/thu/f{1..3000}
+touch: cannot touch '/mnt/thu/f…': No space left on device
+# df -h /mnt/thu ; df -i /mnt/thu
+# umount /mnt/thu ; e2fsck -f /dev/loop0p1
+# xfs_repair -n /dev/loop0p2 ; losetup -d /dev/loop0</pre></details>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker ex">Bài tập</p>
+  <h2>Luyện tập</h2>
+  <ol class="ex small">
+    <li>Vì sao nên dùng UUID thay vì <code>/dev/sdb1</code> trong fstab?
+      <details class="answer"><summary>Đáp án</summary>Tên thiết bị có thể đổi khi thêm/bớt ổ hoặc đổi thứ tự cổng; UUID gắn với filesystem, không đổi.</details></li>
+    <li>Lệnh nào cho biết <code>/home</code> đang nằm trên thiết bị nào, loại filesystem gì?
+      <details class="answer"><summary>Đáp án</summary><code>findmnt /home</code> hoặc <code>df -hT /home</code></details></li>
+    <li>Viết dòng fstab mount <code>/dev/sdd1</code> (xfs) vào <code>/logs</code>, không cho chạy file thực thi.
+      <details class="answer"><summary>Đáp án</summary><code>UUID=…  /logs  xfs  defaults,noexec  0 2</code></details></li>
+    <li>umount báo “target is busy”. Bạn làm gì?
+      <details class="answer"><summary>Đáp án</summary>Ra khỏi thư mục (<code>cd</code>), đóng chương trình đang dùng; tìm bằng <code>lsof +D</code> / <code>fuser -vm</code>.</details></li>
+    <li>Mount file <code>ubuntu.iso</code> vào <code>/mnt/u</code>.
+      <details class="answer"><summary>Đáp án</summary><code>mkdir -p /mnt/u; mount -o loop ubuntu.iso /mnt/u</code></details></li>
+    <li>LV <code>/dev/vgdata/lvweb</code> sắp đầy, VG còn 2 GB trống. Tăng thêm 1 GB?
+      <details class="answer"><summary>Đáp án</summary><code>lvextend -r -L +1G /dev/vgdata/lvweb</code></details></li>
+  </ol>
+</section>
+
+<section class="slide" data-title="Trắc nghiệm nhanh">
+  <p class="kicker ex">Trắc nghiệm nhanh · 5 phút</p>
+  <h2>Kiểm tra trước khi về</h2>
+  <ol class="ex small">
+    <li><code>df -h</code> còn trống nhưng không tạo được file. Kiểm tra gì?
+      <details class="answer"><summary>Đáp án</summary><code>df -i</code> – có thể đã hết inode.</details></li>
+    <li>Viết dòng fstab mount theo nhãn <code>DATA</code> vào <code>/data</code> (ext4)?
+      <details class="answer"><summary>Đáp án</summary><code>LABEL=DATA /data ext4 defaults 0 2</code></details></li>
+    <li>Có được chạy <code>fsck</code> trên phân vùng đang mount đọc-ghi không?
+      <details class="answer"><summary>Đáp án</summary>Không – umount trước (hoặc kiểm tra lúc boot).</details></li>
+  </ol>
+  <div class="chips"><a class="btn" href="quiz.html?b=11">Làm đủ 18 câu của buổi 11 →</a><a class="btn ghost" href="quiz.html?obj=104.3">Luyện mục tiêu 104.3</a></div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Tổng kết</p>
+  <h2>Bảng lệnh buổi 11 &amp; bài về nhà</h2>
+  <div class="cols">
+    <table class="cheat small">
+      <tr><td>lsblk -f · blkid · df -hT</td><td>Nhận diện</td></tr>
+      <tr><td>fdisk /dev/sdX</td><td>Phân vùng</td></tr>
+      <tr><td>mkfs.ext4 · mkfs.xfs · mkswap</td><td>Định dạng</td></tr>
+      <tr><td>mount · umount · findmnt</td><td>Gắn / gỡ</td></tr>
+      <tr><td>/etc/fstab · mount -a</td><td>Mount cố định</td></tr>
+      <tr><td>mount -o loop file.iso</td><td>Mount ISO</td></tr>
+      <tr><td>mount --bind · bind,ro</td><td>Mount bind</td></tr>
+      <tr><td>mount -t cifs</td><td>Share Windows</td></tr>
+      <tr><td>quotacheck · setquota · repquota</td><td>Quota</td></tr>
+      <tr><td>pvcreate · vgcreate · lvcreate</td><td>LVM</td></tr>
+    </table>
+    <div class="stack">
+      <h3>Bài về nhà</h3>
+      <ol class="small">
+        <li>Hoàn thành Lab B (bước 5 nếu kịp)</li>
+        <li>Cố tình gõ sai 1 dòng fstab, reboot, quan sát chế độ emergency, sửa lại (đã có snapshot!)</li>
+      </ol>
+      <div class="callout info"><span class="lbl">Buổi 12</span>Cấu hình mạng (IP tĩnh, IP phụ, DNS), quản lý dịch vụ với <code>systemctl</code>, firewall.</div>
+    </div>
+  </div>
+</section>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

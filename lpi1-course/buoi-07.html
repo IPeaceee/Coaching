@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LPI-1 · Buổi 07 — Quản lý gói phần mềm</title>
+<link rel="stylesheet" href="assets/deck.css">
+</head>
+<body>
+
+<section class="slide title">
+  <div class="num">07</div>
+  <h1>Cài đặt &amp; quản lý phần mềm</h1>
+  <p class="sub"><code>rpm</code> · <code>dnf</code>/<code>yum</code> · kho phần mềm (repo) · <code>dpkg</code> · <code>apt</code> · biên dịch từ mã nguồn</p>
+  <div class="chips"><span class="chip a">LPI-1 · Buổi 7/14</span><span class="chip lpi">102.5</span><span class="chip lpi">102.4</span><span class="chip lpi">102.3</span><span class="chip">~3 giờ</span><span class="chip">Lab: Dựng web server · Biên dịch GNU hello</span></div>
+  <div class="prompt"># dnf install -y httpd &amp;&amp; systemctl enable --now httpd</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Mục tiêu buổi học</p>
+  <h2>Sau buổi này bạn có thể…</h2>
+  <div class="cols">
+    <ul>
+      <li>Kể các cách cài phần mềm trên Linux</li>
+      <li>Đọc tên gói và kiến trúc (<code>x86_64</code>, <code>noarch</code>)</li>
+      <li>Tra cứu, cài, gỡ, cập nhật, kiểm tra toàn vẹn bằng <code>rpm</code> và <code>dnf</code>; biết <code>zypper</code></li>
+      <li>Thêm kho phần mềm (EPEL, file <code>.repo</code>)</li>
+    </ul>
+    <ul>
+      <li>Làm các việc tương tự trên Ubuntu với <code>apt</code>, <code>dpkg</code></li>
+      <li>Biên dịch, cài chương trình từ mã nguồn; xử lý lỗi thiếu thư viện chia sẻ</li>
+      <li>Khởi động dịch vụ vừa cài và mở firewall (giới thiệu)</li>
+    </ul>
+  </div>
+  <div class="callout warn"><span class="lbl">Chuẩn bị</span>VM cần ra được Internet: <code>ping -c 2 8.8.8.8</code>. Nếu không, kiểm tra card mạng NAT đã bật trong VMware/VirtualBox.</div>
+</section>
+
+<section class="slide" data-title="Hành trình">
+  <p class="kicker">Hành trình · server1 của Công ty ABC</p>
+  <h2>Buổi 07 nằm ở đâu?</h2>
+  <div class="journey">
+    <div class="past"><h3>Dùng lại từ trước</h3><ul class="small"><li>B6: <code>tar -xzf</code> giải nén mã nguồn; <code>cpio</code></li><li>B5: <code>rpm -qa | grep</code></li><li>B3: PATH – để gọi <code>/opt/hello/bin/hello</code></li></ul></div>
+    <div class="now"><h3>Hôm nay server1 có thêm</h3><ul class="small"><li>Công cụ quản trị: vim, tree, htop (EPEL)</li><li>Web server <b>httpd</b> – trang chủ Công ty ABC</li><li>Chương trình tự biên dịch trong <code>/opt</code>, hiểu thư viện chia sẻ</li></ul></div>
+    <div class="next"><h3>Dùng tiếp ở</h3><ul class="small"><li>B9: phân quyền <code>/srv/webapp</code> cho user apache</li><li>B12: httpd tự chạy khi boot, mở firewall</li><li>B13: cài openssh, rsync trên cả 2 máy</li></ul></div>
+  </div>
+  <div class="objline">Mục tiêu LPI: <span class="chip lpi">102.5 RPM/YUM/zypper · 3đ</span><span class="chip lpi">102.4 Debian · 3đ</span><span class="chip lpi">102.3 Thư viện chia sẻ · 1đ</span></div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Các cách cài phần mềm</h2>
+  <table>
+    <tr><th></th><th>Họ Red Hat (Rocky, RHEL, Fedora)</th><th>Họ Debian (Ubuntu, Debian)</th></tr>
+    <tr><td><b>File gói</b> tải về sẵn</td><td><code>.rpm</code> → <code>rpm -ivh</code> hoặc <code>dnf install ./file.rpm</code></td><td><code>.deb</code> → <code>dpkg -i</code> hoặc <code>apt install ./file.deb</code></td></tr>
+    <tr><td><b>Từ kho (repository)</b> qua Internet – tự xử lý phụ thuộc</td><td><code>dnf</code> (Rocky 8+), <code>yum</code> (CentOS 7 trở về trước)</td><td><code>apt</code>, <code>apt-get</code>, <code>aptitude</code></td></tr>
+    <tr><td><b>Mã nguồn</b></td><td colspan="2"><code>./configure → make → make install</code></td></tr>
+    <tr><td>Khác</td><td colspan="2">Snap, Flatpak, AppImage (chủ yếu cho desktop)</td></tr>
+  </table>
+  <div class="callout"><span class="lbl">Phụ thuộc (dependency)</span>Phần mềm A cần thư viện B, C… <code>rpm</code>/<code>dpkg</code> chỉ <b>báo lỗi thiếu</b>; <code>dnf</code>/<code>apt</code> <b>tự tải và cài</b> phụ thuộc. Vì vậy hằng ngày ta dùng dnf/apt.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Đọc tên một gói phần mềm</h2>
+  <div class="center"><span class="anno" style="font-size:38px"><span style="color:var(--accent)">openssh-server</span>-<span style="color:var(--amber)">8.7p1</span>-<span style="color:var(--blue)">45.el9</span>.<span style="color:var(--red)">x86_64</span>.rpm</span></div>
+  <div class="cols c3 small">
+    <div class="card"><h3 style="color:var(--accent)">Tên</h3>openssh-server</div>
+    <div class="card"><h3 style="color:var(--amber)">Phiên bản</h3>8.7p1 (của tác giả phần mềm)</div>
+    <div class="card"><h3 style="color:var(--blue)">Release</h3>45.el9 (bản đóng gói cho Enterprise Linux 9)</div>
+  </div>
+  <div class="cols">
+    <table class="small">
+      <tr><th>Kiến trúc</th><th>Ý nghĩa</th></tr>
+      <tr><td><code>x86_64</code> / <code>amd64</code></td><td>64-bit Intel/AMD</td></tr>
+      <tr><td><code>aarch64</code> / <code>arm64</code></td><td>64-bit ARM</td></tr>
+      <tr><td><code>i386</code> <code>i686</code></td><td>32-bit (cũ)</td></tr>
+      <tr><td><code>noarch</code> / <code>all</code></td><td>Không phụ thuộc kiến trúc (script, tài liệu)</td></tr>
+    </table>
+    <pre class="term">
+$ uname -m
+x86_64
+$ arch
+x86_64</pre>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2><code>rpm</code> — tra cứu gói đã cài</h2>
+  <div class="cols">
+    <pre class="term">
+$ rpm -qa | wc -l
+398
+$ rpm -qa | grep -i ssh
+openssh-8.7p1-45.el9.x86_64
+openssh-server-8.7p1-45.el9.x86_64
+openssh-clients-8.7p1-45.el9.x86_64
+$ rpm -qi openssh-server | head -4
+Name        : openssh-server
+Version     : 8.7p1
+Release     : 45.el9
+Architecture: x86_64
+$ rpm -qf /usr/sbin/sshd
+openssh-server-8.7p1-45.el9.x86_64
+$ rpm -ql openssh-server | grep etc</pre>
+    <table class="cheat small">
+      <tr><td>-qa</td><td>Query all: mọi gói đã cài</td></tr>
+      <tr><td>-qi gói</td><td>Thông tin chi tiết</td></tr>
+      <tr><td>-ql gói</td><td>Danh sách file của gói</td></tr>
+      <tr><td>-qf /đường/dẫn</td><td>File này thuộc gói nào?</td></tr>
+      <tr><td>-qc gói</td><td>Chỉ các file cấu hình</td></tr>
+      <tr><td>-qlp file.rpm</td><td>Xem file <b>.rpm chưa cài</b> chứa gì</td></tr>
+      <tr><td>-ivh file.rpm</td><td>Cài mới (i = install)</td></tr>
+      <tr><td>-Uvh file.rpm</td><td>Cài hoặc nâng cấp</td></tr>
+      <tr><td>-Fvh file.rpm</td><td>Chỉ nâng cấp nếu đã có</td></tr>
+      <tr><td>-e gói</td><td>Gỡ (erase) – dùng tên gói</td></tr>
+    </table>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ · LPI 102.5</p>
+  <h2>rpm nâng cao: kiểm tra, chữ ký, bung gói</h2>
+  <div class="cols">
+    <pre class="term tight">
+# rpm -V nano                 # không in gì = nguyên vẹn
+# echo "# thu" &gt;&gt; /etc/nanorc
+# rpm -V nano
+S.5....T.  c /etc/nanorc
+# rpm -Va | head              # kiểm toàn hệ thống
+# rpm -qR nano | head -3      # gói này cần gì
+# rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-Rocky-9
+# rpm -K nano-*.rpm           # = --checksig
+nano-5.6.1-6.el9.x86_64.rpm: digests signatures OK
+# rpm2cpio nano-*.rpm | cpio -idv   # bung file, không cài
+# dnf reinstall -y nano
+# cat /etc/yum.conf           # → /etc/dnf/dnf.conf
+[main]
+gpgcheck=1
+installonly_limit=3</pre>
+    <div class="stack small">
+      <table>
+        <tr><th>Ký hiệu rpm -V</th><th>Nghĩa</th></tr>
+        <tr><td><code>S</code></td><td>Kích thước khác</td></tr>
+        <tr><td><code>5</code></td><td>Nội dung (digest) khác</td></tr>
+        <tr><td><code>T</code></td><td>Thời gian sửa khác</td></tr>
+        <tr><td><code>M</code> · <code>U</code> · <code>G</code></td><td>Quyền · chủ · nhóm khác</td></tr>
+        <tr><td><code>c</code></td><td>Là file cấu hình</td></tr>
+      </table>
+      <div class="callout tip"><span class="lbl">Ứng dụng</span><code>rpm -V</code> giúp phát hiện file hệ thống bị sửa trái phép (vd lệnh <code>ls</code> bị thay bằng bản có mã độc).</div>
+      <div class="callout link"><span class="lbl">Liên kết</span><code>cpio</code> đã học ở B6.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2><code>dnf</code> — cài từ kho, tự xử lý phụ thuộc</h2>
+  <div class="cols">
+    <pre class="term">
+# dnf check-update
+# dnf search nginx
+# dnf info tree
+# dnf install -y tree vim-enhanced
+# dnf remove tree
+# dnf update openssh-server
+# dnf update -y                   # cập nhật mọi thứ
+# dnf list installed | grep ssh
+# dnf provides '*/semanage'
+# dnf group list
+# dnf group install -y "Development Tools"
+# dnf history
+# dnf history undo 7
+# dnf clean all</pre>
+    <div class="stack small">
+      <table class="cheat">
+        <tr><td>search · info</td><td>Tìm / xem thông tin gói</td></tr>
+        <tr><td>install · remove</td><td>Cài / gỡ</td></tr>
+        <tr><td>update [gói]</td><td>Cập nhật</td></tr>
+        <tr><td>list installed</td><td>≈ <code>rpm -qa</code></td></tr>
+        <tr><td>provides</td><td>Gói nào cung cấp file/lệnh này?</td></tr>
+        <tr><td>group install</td><td>Cài cả nhóm gói</td></tr>
+        <tr><td>history (undo)</td><td>Lịch sử giao dịch, hoàn tác</td></tr>
+        <tr><td>repolist</td><td>Các kho đang bật</td></tr>
+      </table>
+      <div class="callout legacy"><span class="lbl">Ghi chú gốc dùng yum</span>Trên Rocky 9, <code>yum</code> chỉ là tên gọi khác của <code>dnf</code> – mọi lệnh <code>yum install/remove/groupinstall</code> trong ghi chú vẫn chạy.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Kho phần mềm (repository)</h2>
+  <div class="cols">
+    <div class="stack">
+      <pre class="term">
+# dnf repolist
+repo id        repo name
+appstream      Rocky Linux 9 - AppStream
+baseos         Rocky Linux 9 - BaseOS
+extras         Rocky Linux 9 - Extras
+# ls /etc/yum.repos.d/
+rocky.repo  rocky-addons.repo  rocky-extras.repo
+# dnf install -y htop
+Error: Unable to find a match: htop
+# dnf install -y epel-release
+# dnf install -y htop
+Complete!</pre>
+      <p class="small"><b>EPEL</b> (Extra Packages for Enterprise Linux): kho bổ sung phổ biến nhất cho RHEL/Rocky.</p>
+    </div>
+    <div class="stack">
+      <pre class="file" data-file="/etc/yum.repos.d/lab.repo">[lab-local]
+name=Kho noi bo cua phong lab
+baseurl=http://192.168.229.10/rocky9/
+enabled=1
+gpgcheck=1
+gpgkey=http://192.168.229.10/rocky9/RPM-GPG-KEY-lab</pre>
+      <div class="callout"><span class="lbl">Cấu trúc file .repo</span><code>[id]</code> · <code>name</code> · <code>baseurl</code>/<code>mirrorlist</code> · <code>enabled</code> · <code>gpgcheck</code> + <code>gpgkey</code> (xác thực gói không bị giả mạo).</div>
+      <pre class="term">
+# dnf install --downloadonly --downloaddir=/root/pkgs openvpn
+# dnf download openvpn         # chỉ tải file .rpm</pre>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Ubuntu/Debian: <code>apt</code> và <code>dpkg</code></h2>
+  <div class="cols">
+    <pre class="term">
+$ sudo apt update                  # làm mới danh sách gói
+$ sudo apt upgrade -y              # nâng cấp các gói
+$ apt search proftpd
+$ apt show nginx-common
+$ sudo apt install -y htop nginx
+$ sudo apt remove nginx            # gỡ, giữ cấu hình
+$ sudo apt purge nginx             # gỡ cả cấu hình
+$ sudo apt autoremove              # dọn gói thừa
+$ apt list --installed | grep ssh
+$ apt-cache depends htop
+$ sudo dpkg -i gói.deb
+$ dpkg -l | grep -i python
+$ dpkg -L openssh-server           # file của gói
+$ dpkg -S /usr/sbin/sshd           # file thuộc gói nào</pre>
+    <div class="stack small">
+      <div class="card tint"><h3>Kho của Ubuntu</h3><code>/etc/apt/sources.list.d/ubuntu.sources</code> (24.04) — bản cũ: <code>/etc/apt/sources.list</code></div>
+      <div class="callout"><span class="lbl">update ≠ upgrade</span><code>apt update</code> chỉ tải <b>danh sách</b> gói mới. <code>apt upgrade</code> mới thực sự nâng cấp. (Trên dnf, <code>update</code> = nâng cấp.)</div>
+      <div class="callout legacy"><span class="lbl">Ghi chú gốc</span><code>apt-get</code>, <code>apt-cache</code>, <code>aptitude</code> vẫn dùng được; <code>apt</code> là lệnh gộp, thân thiện hơn.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ · LPI 102.4 · 102.5</p>
+  <h2>dpkg nâng cao và zypper (openSUSE)</h2>
+  <div class="cols">
+    <div class="stack small">
+      <pre class="term tight">
+$ dpkg -s openssh-server | head -3   # trạng thái, phiên bản
+Package: openssh-server
+Status: install ok installed
+$ dpkg -I goi.deb                    # thông tin file .deb
+$ sudo dpkg -r goi                   # gỡ, giữ cấu hình
+$ sudo dpkg -P goi                   # gỡ cả cấu hình (purge)
+$ sudo apt-get install -f            # sửa phụ thuộc bị thiếu
+$ sudo dpkg-reconfigure tzdata       # hỏi lại cấu hình gói
+$ apt-cache policy nginx             # bản cài / bản ứng viên
+$ sudo apt install apt-file ; sudo apt-file update
+$ apt-file search /usr/bin/htop      # gói CHƯA cài nào có file này</pre>
+      <pre class="file" data-file="/etc/apt/sources.list (dạng truyền thống – có trong đề)">deb http://archive.ubuntu.com/ubuntu noble main restricted universe
+deb http://security.ubuntu.com/ubuntu noble-security main</pre>
+    </div>
+    <div class="stack small">
+      <h3>zypper – trình quản lý gói của openSUSE (cũng dùng RPM)</h3>
+      <table class="cheat">
+        <tr><td>zypper refresh</td><td>Làm mới kho (≈ apt update)</td></tr>
+        <tr><td>zypper install goi</td><td>Cài</td></tr>
+        <tr><td>zypper remove goi</td><td>Gỡ</td></tr>
+        <tr><td>zypper update</td><td>Nâng cấp</td></tr>
+        <tr><td>zypper search goi</td><td>Tìm</td></tr>
+        <tr><td>zypper info goi</td><td>Thông tin</td></tr>
+        <tr><td>zypper se --provides /usr/bin/x</td><td>Gói nào có file</td></tr>
+        <tr><td>zypper repos · addrepo</td><td>Liệt kê · thêm kho</td></tr>
+      </table>
+      <div class="callout"><span class="lbl">Đề thi hỏi đủ 3 họ</span>dnf/yum (Red Hat) · apt/dpkg (Debian) · zypper (SUSE). Viết tắt hay gặp: <code>zypper in</code>, <code>zypper rm</code>, <code>zypper se</code>.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Tổng hợp</p>
+  <h2>Bảng đối chiếu nhanh</h2>
+  <table class="small">
+    <tr><th>Việc cần làm</th><th>Rocky / RHEL</th><th>Ubuntu / Debian</th></tr>
+    <tr><td>Làm mới danh sách gói</td><td><code>dnf check-update</code> (tự động)</td><td><code>apt update</code></td></tr>
+    <tr><td>Nâng cấp toàn hệ thống</td><td><code>dnf update</code></td><td><code>apt upgrade</code> / <code>full-upgrade</code></td></tr>
+    <tr><td>Tìm gói</td><td><code>dnf search</code></td><td><code>apt search</code></td></tr>
+    <tr><td>Cài / gỡ</td><td><code>dnf install</code> / <code>dnf remove</code></td><td><code>apt install</code> / <code>apt remove</code>, <code>purge</code></td></tr>
+    <tr><td>Gói đã cài</td><td><code>rpm -qa</code></td><td><code>dpkg -l</code></td></tr>
+    <tr><td>File của gói</td><td><code>rpm -ql</code></td><td><code>dpkg -L</code></td></tr>
+    <tr><td>File thuộc gói nào</td><td><code>rpm -qf</code></td><td><code>dpkg -S</code></td></tr>
+    <tr><td>Cài file tải về</td><td><code>dnf install ./x.rpm</code></td><td><code>apt install ./x.deb</code></td></tr>
+    <tr><td>Bộ công cụ biên dịch</td><td><code>dnf group install "Development Tools"</code></td><td><code>apt install build-essential</code></td></tr>
+  </table>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Cài đặt từ mã nguồn</h2>
+  <div class="flow">
+    <div class="box blue">Tải source<small>wget …tar.gz</small></div><div class="arrow">→</div>
+    <div class="box">Giải nén<small>tar -xzf · cd</small></div><div class="arrow">→</div>
+    <div class="box alt">./configure<small>kiểm tra thư viện, chọn --prefix</small></div><div class="arrow">→</div>
+    <div class="box">make<small>biên dịch</small></div><div class="arrow">→</div>
+    <div class="box blue">make install<small>chép vào hệ thống (root)</small></div>
+  </div>
+  <div class="cols">
+    <ul class="small">
+      <li>Luôn đọc <code>README</code> / <code>INSTALL</code> trong thư mục source</li>
+      <li><code>./configure --help</code> liệt kê mọi tùy chọn</li>
+      <li><code>--prefix=/opt/ten</code>: cài gọn vào 1 thư mục, dễ gỡ</li>
+      <li>Thiếu thư viện → <code>configure: error: ...</code> → cài gói <code>*-devel</code> (Rocky) / <code>*-dev</code> (Ubuntu)</li>
+    </ul>
+    <div class="callout warn"><span class="lbl">Nhược điểm</span>Phần mềm cài từ source <b>không được dnf/apt quản lý</b>: không tự cập nhật bảo mật, khó gỡ. Chỉ dùng khi kho không có phiên bản bạn cần.</div>
+  </div>
+  <div class="callout legacy"><span class="lbl">Ghi chú gốc</span>Biên dịch Apache 2.4 (cần thêm APR, APR-util, pcre-devel, openssl-devel) là ví dụ nâng cao – để làm bài tập mở rộng.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết · LPI 102.3</p>
+  <h2>Thư viện chia sẻ (.so) — vì sao chương trình “không chạy được”</h2>
+  <div class="cols">
+    <pre class="term tight">
+$ ldd /usr/bin/ls
+	linux-vdso.so.1 (0x00007ffd5b7e3000)
+	libselinux.so.1 =&gt; /lib64/libselinux.so.1 (0x00007f…)
+	libc.so.6 =&gt; /lib64/libc.so.6 (0x00007f…)
+	/lib64/ld-linux-x86-64.so.2 (0x00007f…)
+$ ./app
+./app: error while loading shared libraries: libabc.so.1:
+cannot open shared object file: No such file or directory
+$ cat /etc/ld.so.conf
+include ld.so.conf.d/*.conf
+# echo /opt/abc/lib &gt; /etc/ld.so.conf.d/abc.conf
+# ldconfig                       # cập nhật /etc/ld.so.cache
+$ ldconfig -p | grep libabc
+$ LD_LIBRARY_PATH=/opt/abc/lib ./app   # tạm thời, 1 lần chạy</pre>
+    <div class="stack small">
+      <ul>
+        <li>Thư viện <b>tĩnh</b> (<code>.a</code>) được gộp vào chương trình khi biên dịch</li>
+        <li>Thư viện <b>chia sẻ</b> (<code>.so</code>) nạp lúc chạy, nhiều chương trình dùng chung → tiết kiệm RAM, sửa lỗi 1 lần</li>
+        <li>Vị trí chuẩn: <code>/lib</code>, <code>/lib64</code>, <code>/usr/lib</code>, <code>/usr/lib64</code></li>
+        <li>Tên dạng <code>libten.so.PHIÊNBẢN</code> (soname)</li>
+      </ul>
+      <table class="cheat">
+        <tr><td>ldd</td><td>Chương trình cần thư viện nào</td></tr>
+        <tr><td>ldconfig</td><td>Làm mới bộ đệm thư viện</td></tr>
+        <tr><td>/etc/ld.so.conf</td><td>Thư mục tìm thư viện</td></tr>
+        <tr><td>LD_LIBRARY_PATH</td><td>Thêm thư mục tạm thời</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Giới thiệu trước</p>
+  <h2>Cài xong một dịch vụ — làm gì tiếp?</h2>
+  <div class="cols">
+    <pre class="term">
+# dnf install -y httpd
+# systemctl enable --now httpd      # chạy ngay + tự chạy khi boot
+# systemctl status httpd
+# ss -tlnp | grep :80
+LISTEN 0 511  *:80   *:*  users:(("httpd",pid=2101))
+# firewall-cmd --add-service=http --permanent
+# firewall-cmd --reload
+# echo "&lt;h1&gt;Xin chao tu server1&lt;/h1&gt;" &gt; /var/www/html/index.html
+# curl localhost
+&lt;h1&gt;Xin chao tu server1&lt;/h1&gt;</pre>
+    <div class="stack small">
+      <ol>
+        <li>Cài gói</li>
+        <li>Khởi động &amp; bật tự chạy (<code>systemctl</code>)</li>
+        <li>Kiểm tra cổng đang lắng nghe (<code>ss</code>)</li>
+        <li>Mở firewall cho cổng/dịch vụ</li>
+        <li>Thử truy cập</li>
+      </ol>
+      <div class="callout legacy"><span class="lbl">Hệ cũ (ghi chú gốc)</span><code>/etc/init.d/httpd start</code>, <code>chkconfig httpd on</code>, <code>/etc/init.d/iptables stop</code>. Chi tiết systemd ở buổi 12.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab A · 30 phút</p>
+  <h2>Thao tác với rpm và dnf</h2>
+  <ol class="steps small">
+    <li>Đếm số gói đã cài. Liệt kê các gói có chữ “kernel”</li>
+    <li>Lệnh <code>/usr/bin/ssh</code> thuộc gói nào? Gói đó có những file cấu hình nào?</li>
+    <li>Cài <code>tree</code>, <code>vim-enhanced</code>, <code>bash-completion</code>, <code>wget</code> trong <b>một</b> lệnh</li>
+    <li>Thử cài <code>htop</code> → lỗi → bật EPEL → cài lại thành công</li>
+    <li>Gỡ <code>tree</code>, rồi dùng <code>dnf history</code> để hoàn tác thao tác gỡ</li>
+    <li>Tải (không cài) gói <code>nano</code> về <code>/root/pkgs</code>, kiểm tra chữ ký <code>rpm -K</code>, xem nội dung <code>rpm -qlp</code>, rồi cài bằng <code>rpm -ivh</code></li>
+    <li>Sửa <code>/etc/nanorc</code> rồi chạy <code>rpm -V nano</code> – đọc ý nghĩa các ký hiệu</li>
+  </ol>
+  <details class="answer"><summary>Gợi ý lời giải</summary>
+  <pre class="term">
+$ rpm -qa | wc -l ; rpm -qa | grep kernel
+$ rpm -qf /usr/bin/ssh ; rpm -qc openssh-clients
+# dnf install -y tree vim-enhanced bash-completion wget
+# dnf install -y epel-release &amp;&amp; dnf install -y htop
+# dnf remove -y tree ; dnf history ; dnf history undo &lt;ID&gt;
+# dnf download --destdir=/root/pkgs nano ; rpm -qlp /root/pkgs/nano-*.rpm ; rpm -ivh /root/pkgs/nano-*.rpm</pre></details>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab B · 30 phút</p>
+  <h2>Dựng web server đầu tiên</h2>
+  <ol class="steps small">
+    <li>Cài <code>httpd</code>, khởi động và bật tự chạy khi boot</li>
+    <li>Kiểm tra httpd đang lắng nghe cổng 80</li>
+    <li>Tạo trang <code>/var/www/html/index.html</code> có tên bạn</li>
+    <li>Từ chính server: <code>curl localhost</code></li>
+    <li>Lấy IP server bằng <code>ip -4 a</code>. Mở trình duyệt trên máy thật → <code>http://IP</code> → không vào được?</li>
+    <li>Mở firewall cho dịch vụ http, thử lại → thấy trang của bạn</li>
+  </ol>
+  <div class="callout info"><span class="lbl">Ubuntu (về nhà)</span><code>sudo apt install -y nginx</code> → dịch vụ tự chạy → trang ở <code>/var/www/html/</code>; firewall <code>ufw</code> mặc định tắt.</div>
+  <aside class="notes">Ghi chú gốc cài Webmin trên cổng 10000 – có thể làm thêm cho lớp khá: thêm webmin.repo, dnf install webmin, firewall-cmd --add-port=10000/tcp --permanent.</aside>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab C · 30 phút</p>
+  <h2>Biên dịch GNU hello từ mã nguồn</h2>
+  <div class="cols">
+    <pre class="term">
+# dnf group install -y "Development Tools"
+$ cd ~ &amp;&amp; wget https://ftp.gnu.org/gnu/hello/hello-2.12.1.tar.gz
+$ tar -xzf hello-2.12.1.tar.gz
+$ cd hello-2.12.1
+$ less README                       # q để thoát
+$ ./configure --help | less
+$ ./configure --prefix=/opt/hello
+$ make
+# make install
+$ /opt/hello/bin/hello
+Hello, world!
+$ /opt/hello/bin/hello -g "Xin chao LPI"
+Xin chao LPI</pre>
+    <div class="stack small">
+      <ol>
+        <li>Chạy lần lượt các lệnh bên trái</li>
+        <li>Lệnh <code>hello</code> chưa nằm trong PATH – thêm <code>/opt/hello/bin</code> vào PATH của bạn</li>
+        <li>Kiểm tra <code>rpm -qf /opt/hello/bin/hello</code> – kết quả nói lên điều gì?</li>
+        <li><code>ldd /opt/hello/bin/hello</code>: chương trình cần những thư viện nào?</li>
+        <li>Gỡ cài đặt: <code>rm -rf /opt/hello</code> (lợi ích của <code>--prefix</code>)</li>
+      </ol>
+      <details class="answer"><summary>Đáp án câu 3</summary>“not owned by any package” – dnf/rpm không biết phần mềm này tồn tại.</details>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker ex">Bài tập</p>
+  <h2>Luyện tập</h2>
+  <ol class="ex small">
+    <li>File <code>/etc/ssh/sshd_config</code> thuộc gói nào?
+      <details class="answer"><summary>Đáp án</summary><code>rpm -qf /etc/ssh/sshd_config</code> → <code>openssh-server</code></details></li>
+    <li>Lệnh <code>semanage</code> không có. Tìm gói cần cài.
+      <details class="answer"><summary>Đáp án</summary><code>dnf provides '*/semanage'</code> → <code>policycoreutils-python-utils</code></details></li>
+    <li>Khác nhau giữa <code>rpm -ivh</code> và <code>rpm -Uvh</code>?
+      <details class="answer"><summary>Đáp án</summary><code>-i</code> chỉ cài mới (lỗi nếu đã có); <code>-U</code> cài mới hoặc nâng cấp nếu đã có bản cũ.</details></li>
+    <li>Trên Ubuntu, gỡ <code>apache2</code> và xóa luôn file cấu hình.
+      <details class="answer"><summary>Đáp án</summary><code>sudo apt purge apache2 &amp;&amp; sudo apt autoremove</code></details></li>
+    <li>Vì sao <code>rpm -ivh</code> một gói tải về báo “Failed dependencies”, còn <code>dnf install ./gói.rpm</code> thì thành công?
+      <details class="answer"><summary>Đáp án</summary>dnf tự tìm và cài các gói phụ thuộc từ kho; rpm thì không.</details></li>
+  </ol>
+</section>
+
+<section class="slide" data-title="Trắc nghiệm nhanh">
+  <p class="kicker ex">Trắc nghiệm nhanh · 5 phút</p>
+  <h2>Kiểm tra trước khi về</h2>
+  <ol class="ex small">
+    <li>File <code>/usr/bin/ssh</code> thuộc gói RPM nào – dùng lệnh gì?
+      <details class="answer"><summary>Đáp án</summary><code>rpm -qf /usr/bin/ssh</code> (Debian: <code>dpkg -S</code>).</details></li>
+    <li>Gỡ gói Debian và xóa luôn file cấu hình bằng dpkg?
+      <details class="answer"><summary>Đáp án</summary><code>dpkg -P goi</code> (purge).</details></li>
+    <li>Thêm thư mục thư viện vào <code>/etc/ld.so.conf.d/</code> rồi phải chạy gì?
+      <details class="answer"><summary>Đáp án</summary><code>ldconfig</code></details></li>
+  </ol>
+  <div class="chips"><a class="btn" href="quiz.html?b=7">Làm đủ 18 câu của buổi 07 →</a><a class="btn ghost" href="quiz.html?obj=102.5">Luyện mục tiêu 102.5</a></div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Tổng kết</p>
+  <h2>Bảng lệnh buổi 07 &amp; bài về nhà</h2>
+  <div class="cols">
+    <table class="cheat small">
+      <tr><td>rpm -qa -qi -ql -qf</td><td>Tra cứu gói (Red Hat)</td></tr>
+      <tr><td>rpm -ivh -Uvh -e</td><td>Cài / nâng cấp / gỡ file .rpm</td></tr>
+      <tr><td>dnf install remove update</td><td>Quản lý gói qua kho</td></tr>
+      <tr><td>dnf search info provides</td><td>Tìm kiếm</td></tr>
+      <tr><td>dnf repolist · epel-release</td><td>Kho phần mềm</td></tr>
+      <tr><td>apt update · upgrade · install</td><td>Ubuntu</td></tr>
+      <tr><td>dpkg -i -l -L -S</td><td>Gói .deb</td></tr>
+      <tr><td>./configure · make · make install</td><td>Từ mã nguồn</td></tr>
+    </table>
+    <div class="stack">
+      <h3>Bài về nhà</h3>
+      <ol class="small">
+        <li>Trên VM Ubuntu: cài nginx, sửa trang chủ, truy cập từ máy thật</li>
+        <li>Chụp snapshot <b>07-web</b> cho VM Rocky</li>
+        <li>(Nâng cao) Biên dịch Apache httpd 2.4 vào <code>/opt/apache2</code> theo ghi chú gốc</li>
+      </ol>
+      <div class="callout info"><span class="lbl">Buổi 08</span>Quản lý user &amp; group, chính sách mật khẩu, <code>sudo</code> và <code>visudo</code>.</div>
+    </div>
+  </div>
+</section>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

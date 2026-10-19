@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trắc nghiệm LPI-1</title>
+<link rel="stylesheet" href="assets/deck.css">
+</head>
+<body class="page">
+<div class="page-wrap quiz-wrap">
+
+  <header class="hero">
+    <button class="theme-btn" type="button" data-toggle-theme>Sáng / tối</button>
+    <p class="kicker">Trắc nghiệm LPI-1 · <a href="index.html">← Lộ trình</a> <a id="deckLink" href="#" hidden>· Mở slide buổi này</a></p>
+    <h1 id="setTitle">Trắc nghiệm</h1>
+    <p id="setMeta"></p>
+    <div class="quiz-pick">
+      <label>Theo buổi <select id="selB"></select></label>
+      <label>Theo mục tiêu LPI <select id="selObj"></select></label>
+      <a class="btn" href="quiz.html?mode=exam">Thi thử LPI-101 (60 câu · 90 phút)</a>
+      <a class="btn ghost" href="quiz.html?mode=all">Tất cả câu (ngẫu nhiên)</a>
+    </div>
+    <p class="muted small-note">Câu “Chọn 2” cần chọn đủ và đúng mới được điểm. Câu điền: gõ đúng lệnh như khi dùng thật (không phân biệt số khoảng trắng). Đề thi thật gồm 60 câu trong 90 phút; chế độ thi thử lấy số câu mỗi mục tiêu đúng bằng trọng số của mục tiêu đó.</p>
+  </header>
+
+  <div id="timer" class="quiz-timer" hidden></div>
+  <section id="qlist" class="qlist" aria-live="polite"></section>
+  <div id="result" class="quiz-result" hidden></div>
+  <div class="quiz-actions">
+    <button id="btnSubmit" class="btn" type="button">Nộp bài &amp; chấm điểm</button>
+    <button id="btnRetry" class="btn ghost" type="button" hidden>Làm lại</button>
+  </div>
+</div>
+<script src="assets/quiz-data.js"></script>
+<script src="assets/deck.js"></script>
+<script src="assets/quiz.js"></script>
+</body>
+</html>

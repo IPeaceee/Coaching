@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LPI-1 · Buổi 05 — Pipe, grep &amp; lọc văn bản</title>
+<link rel="stylesheet" href="assets/deck.css">
+</head>
+<body>
+
+<section class="slide title">
+  <div class="num">05</div>
+  <h1>Chuyển hướng, pipe, grep &amp; lọc văn bản</h1>
+  <p class="sub">Ghép các lệnh nhỏ thành “dây chuyền” xử lý dữ liệu – triết lý cốt lõi của Linux.</p>
+  <div class="chips"><span class="chip a">LPI-1 · Buổi 5/14</span><span class="chip lpi">103.4</span><span class="chip lpi">103.2</span><span class="chip lpi">103.7</span><span class="chip">~3 giờ</span><span class="chip">Lab: Phân tích /etc/passwd &amp; log</span></div>
+  <div class="prompt">$ cut -d: -f7 /etc/passwd | sort | uniq -c | sort -rn</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Mục tiêu buổi học</p>
+  <h2>Sau buổi này bạn có thể…</h2>
+  <div class="cols">
+    <ul>
+      <li>Xem file bằng <code>cat</code>, <code>less</code>, <code>head</code>, <code>tail</code></li>
+      <li>Hiểu 3 luồng stdin / stdout / stderr</li>
+      <li>Ghi kết quả ra file với <code>&gt;</code> <code>&gt;&gt;</code> <code>2&gt;</code></li>
+      <li>Nối lệnh bằng pipe <code>|</code></li>
+    </ul>
+    <ul>
+      <li>Lọc dòng bằng <code>grep</code>; phân biệt regex cơ bản (BRE) và mở rộng (ERE)</li>
+      <li>Cắt, ghép, chia, đếm: <code>cut</code> <code>paste</code> <code>split</code> <code>sort</code> <code>uniq</code> <code>wc</code> <code>tr</code></li>
+      <li>Kiểm tra file nguyên vẹn bằng <code>sha256sum</code>; dùng <code>xargs</code>, <code>awk</code>, here-document</li>
+    </ul>
+  </div>
+  <div class="callout info"><span class="lbl">Ôn bài cũ</span>Lưu và thoát vim? Thay thế toàn file? Sửa file bằng sed mà vẫn giữ bản sao lưu?</div>
+</section>
+
+<section class="slide" data-title="Hành trình">
+  <p class="kicker">Hành trình · server1 của Công ty ABC</p>
+  <h2>Buổi 05 nằm ở đâu?</h2>
+  <div class="journey">
+    <div class="past"><h3>Dùng lại từ trước</h3><ul class="small"><li>B2: dấu nháy – <code>grep '^#'</code> phải có nháy</li><li>B3: <code>find</code>, wildcard</li><li>B4: <code>sed 's/…/…/g'</code></li></ul></div>
+    <div class="now"><h3>Hôm nay server1 có thêm</h3><ul class="small"><li>Báo cáo user/shell bằng một dây chuyền lệnh</li><li>Kiểm tra file nguyên vẹn bằng <code>sha256sum</code></li><li>Lọc log đăng nhập thất bại trong <code>/var/log/secure</code></li></ul></div>
+    <div class="next"><h3>Dùng tiếp ở</h3><ul class="small"><li>B6: <code>ps aux | grep</code>, <code>ss | grep</code></li><li>B7: <code>rpm -qa | grep</code></li><li>B13: script ghi log bằng <code>&gt;&gt; … 2&gt;&amp;1</code></li></ul></div>
+  </div>
+  <div class="objline">Mục tiêu LPI: <span class="chip lpi">103.4 Luồng &amp; pipe · 4đ</span><span class="chip lpi">103.2 Bộ lọc · 2đ</span><span class="chip lpi">103.7 Regex · 3đ</span></div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Xem nội dung file</h2>
+  <div class="cols">
+    <table class="cheat small">
+      <tr><td>cat file</td><td>In toàn bộ (file ngắn)</td></tr>
+      <tr><td>cat -n file</td><td>In kèm số dòng</td></tr>
+      <tr><td>less file</td><td>Xem từng trang, cuộn lên/xuống, <kbd>/</kbd> để tìm, <kbd>q</kbd> thoát</td></tr>
+      <tr><td>more file</td><td>Giống less nhưng chỉ cuộn xuống</td></tr>
+      <tr><td>head file</td><td>10 dòng đầu</td></tr>
+      <tr><td>head -n 5 file</td><td>5 dòng đầu</td></tr>
+      <tr><td>tail -n 20 file</td><td>20 dòng cuối</td></tr>
+      <tr><td>tail -f file</td><td>Theo dõi file đang được ghi (log)</td></tr>
+      <tr><td>wc -l file</td><td>Đếm số dòng</td></tr>
+    </table>
+    <pre class="term">
+$ seq 1000000 &gt; 1trieu.txt
+$ head -n 3 1trieu.txt
+1
+2
+3
+$ tail -n 2 1trieu.txt
+999999
+1000000
+$ wc -l 1trieu.txt
+1000000 1trieu.txt
+# tail -f /var/log/secure     # Ctrl+C để dừng</pre>
+  </div>
+  <div class="callout tip"><span class="lbl">Mẹo</span><code>cat</code> file 1 triệu dòng sẽ “trôi” màn hình – hãy dùng <code>less</code>.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Ba luồng dữ liệu chuẩn</h2>
+  <div class="flow" style="margin-top:6px">
+    <div class="box blue">stdin (0)<small>bàn phím / file / pipe</small></div>
+    <div class="arrow">→</div>
+    <div class="box alt" style="flex:1.3">LỆNH</div>
+    <div class="arrow">→</div>
+    <div class="stack" style="flex:1.2">
+      <div class="box">stdout (1)<small>kết quả bình thường → màn hình</small></div>
+      <div class="box" style="border-color:var(--red);background:var(--red-soft)">stderr (2)<small>thông báo lỗi → màn hình</small></div>
+    </div>
+  </div>
+  <pre class="term">
+$ ls /etc/hosts /khong-co
+ls: cannot access '/khong-co': No such file or directory     ← stderr
+/etc/hosts                                                   ← stdout</pre>
+  <p class="small">Cả hai cùng hiện ra màn hình, nhưng là <b>hai luồng khác nhau</b> → có thể tách riêng để lưu hoặc bỏ đi.</p>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Chuyển hướng: <code>&gt;</code> <code>&gt;&gt;</code> <code>2&gt;</code> <code>&lt;</code></h2>
+  <div class="cols">
+    <pre class="term">
+$ echo "1 2 3" &gt; 123.txt          # tạo / GHI ĐÈ
+$ cat 123.txt &gt; 456.txt
+$ echo "4 5 6" &gt;&gt; 456.txt         # NỐI vào cuối
+$ cat 456.txt
+1 2 3
+4 5 6
+$ &gt; 456.txt                        # làm rỗng file
+$ ls /etc /khong-co &gt; ok.txt 2&gt; loi.txt
+$ find / -name "*.conf" 2&gt;/dev/null
+$ ls /etc /khong-co &amp;&gt; tatca.txt   # cả 2 luồng
+$ wc -l &lt; /etc/passwd             # stdin từ file
+34</pre>
+    <table class="cheat small">
+      <tr><td>&gt; file</td><td>stdout → file (ghi đè)</td></tr>
+      <tr><td>&gt;&gt; file</td><td>stdout → nối vào cuối file</td></tr>
+      <tr><td>2&gt; file</td><td>stderr → file</td></tr>
+      <tr><td>2&gt;&amp;1</td><td>stderr đi chung đường với stdout</td></tr>
+      <tr><td>&amp;&gt; file</td><td>Cả stdout và stderr → file</td></tr>
+      <tr><td>&lt; file</td><td>Lấy stdin từ file</td></tr>
+      <tr><td>/dev/null</td><td>“Hố đen” – mọi thứ ghi vào đều biến mất</td></tr>
+    </table>
+  </div>
+  <div class="callout warn"><span class="lbl">Cẩn thận với &gt;</span><code>&gt;</code> xóa sạch nội dung cũ không hỏi. Ghi chú gốc dùng <code>echo &gt; file</code> hay <code>cat /dev/null &gt; file</code> để làm rỗng file – đúng, nhưng hãy chắc chắn đó là file bạn muốn xóa.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Pipe <code>|</code> — đầu ra lệnh này là đầu vào lệnh kia</h2>
+  <div class="flow">
+    <div class="box">ps aux<small>mọi tiến trình</small></div><div class="arrow">|</div>
+    <div class="box alt">grep sshd<small>chỉ giữ dòng có “sshd”</small></div><div class="arrow">|</div>
+    <div class="box blue">wc -l<small>đếm số dòng</small></div>
+  </div>
+  <div class="cols">
+    <pre class="term">
+$ ls -la /usr/bin | less
+$ ls -la /usr/bin | grep -i zip
+$ cat /etc/passwd | wc -l
+34
+$ ps aux | grep -i sshd
+root  1021  0.0  0.4 … Ss 08:00 0:00 sshd: /usr/sbin/sshd -D
+$ history | grep dnf
+$ dnf list installed | grep -i python</pre>
+    <div class="stack small">
+      <div class="callout tip"><span class="lbl">tee — vừa xem vừa lưu</span><code>df -h | tee disk.txt</code> in ra màn hình <b>và</b> ghi vào disk.txt.</div>
+      <div class="callout"><span class="lbl">Khác biệt</span><code>&gt;</code> nối lệnh với <b>file</b>; <code>|</code> nối lệnh với <b>lệnh</b>.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2><code>grep</code> — lọc ra dòng chứa chuỗi cần tìm</h2>
+  <div class="cols w4">
+    <pre class="file" data-file="test_grep.txt">linux athena
+LINUX athena
+123linux Athena123
+123LINUX Athena
+linux456 aaa
+LINUX456 123
+
+1Linux
+2Linux
+3Linux</pre>
+    <div class="stack">
+      <pre class="term">
+$ grep 'linux' test_grep.txt
+linux athena
+123linux Athena123
+linux456 aaa
+$ grep -i 'linux' test_grep.txt | wc -l
+9
+$ grep -n 'athena' test_grep.txt
+1:linux athena
+2:LINUX athena</pre>
+      <table class="cheat small">
+        <tr><td>-i</td><td>Không phân biệt hoa thường</td><td>-v</td><td>Đảo: dòng KHÔNG chứa</td></tr>
+        <tr><td>-n</td><td>Kèm số dòng</td><td>-c</td><td>Đếm số dòng khớp</td></tr>
+        <tr><td>-w</td><td>Khớp nguyên từ</td><td>-r</td><td>Tìm đệ quy trong thư mục</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Biểu thức chính quy cơ bản với grep</h2>
+  <div class="cols">
+    <table class="small">
+      <tr><th>Mẫu</th><th>Ý nghĩa</th><th>Kết quả trên test_grep.txt</th></tr>
+      <tr><td><code>'^linux'</code></td><td>Bắt đầu bằng linux</td><td>dòng 1, 5</td></tr>
+      <tr><td><code>-i '^linux'</code></td><td>…không phân biệt hoa</td><td>dòng 1, 2, 5, 6</td></tr>
+      <tr><td><code>-i 'linux$'</code></td><td>Kết thúc bằng linux</td><td>1Linux, 2Linux, 3Linux</td></tr>
+      <tr><td><code>-i '[0-9]linux'</code></td><td>Một chữ số đứng trước</td><td>dòng 3, 4, 8, 9, 10</td></tr>
+      <tr><td><code>-i '[13]linux'</code></td><td>Số 1 hoặc 3 đứng trước</td><td>dòng 3, 4, 8, 10</td></tr>
+      <tr><td><code>'^$'</code></td><td>Dòng trống</td><td>dòng 7</td></tr>
+      <tr><td><code>'a.a'</code></td><td><code>.</code> = 1 ký tự bất kỳ</td><td>aaa</td></tr>
+    </table>
+    <div class="stack small">
+      <pre class="term">
+## Bỏ dòng chú thích và dòng trống
+$ grep -v '^#' /etc/ssh/sshd_config | grep -v '^$'
+$ grep -Ev '^#|^$' /etc/ssh/sshd_config
+## Nhiều mẫu (HOẶC) cần -E
+$ grep -E 'root|nhanle' /etc/passwd</pre>
+      <div class="callout legacy"><span class="lbl">Sửa ghi chú gốc</span>Ghi chú dùng <code>[1,3]</code> – dấu phẩy cũng bị coi là 1 ký tự trong tập. Viết đúng: <code>[13]</code>. <code>egrep</code> cũ = <code>grep -E</code>.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Cắt cột, sắp xếp, loại trùng, đếm</h2>
+  <div class="cols">
+    <pre class="term tight">
+$ head -2 /etc/passwd
+root:x:0:0:root:/root:/bin/bash
+bin:x:1:1:bin:/bin:/sbin/nologin
+$ cut -d: -f1 /etc/passwd | head -3
+root
+bin
+daemon
+$ cut -d: -f1,7 /etc/passwd | tail -1
+nhanle:/bin/bash
+$ cut -d: -f1 /etc/passwd &gt; /root/listuser.txt
+$ sort -t: -k3 -n /etc/passwd | tail -1   # UID lớn nhất
+$ cut -d: -f7 /etc/passwd | sort | uniq -c
+      2 /bin/bash
+      1 /bin/sync
+      1 /sbin/halt
+     29 /sbin/nologin
+      1 /sbin/shutdown</pre>
+    <table class="cheat small">
+      <tr><td>cut -d: -f1</td><td>Cắt cột 1, phân cách bởi <code>:</code></td></tr>
+      <tr><td>sort</td><td>Sắp xếp theo chữ cái</td></tr>
+      <tr><td>sort -n · -r</td><td>Theo số · đảo ngược</td></tr>
+      <tr><td>sort -t: -k3</td><td>Theo cột 3, phân cách <code>:</code></td></tr>
+      <tr><td>uniq</td><td>Gộp các dòng trùng <b>kề nhau</b></td></tr>
+      <tr><td>uniq -c</td><td>…kèm số lần lặp</td></tr>
+      <tr><td>wc -l -w -c</td><td>Đếm dòng, từ, byte</td></tr>
+      <tr><td>tr a-z A-Z</td><td>Đổi ký tự (vd chữ thường → hoa)</td></tr>
+    </table>
+  </div>
+  <div class="callout warn"><span class="lbl">Bẫy uniq</span><code>uniq</code> chỉ gộp dòng trùng <b>đứng liền nhau</b> → hầu như luôn cần <code>sort</code> trước.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2><code>xargs</code> và một chút <code>awk</code></h2>
+  <div class="cols">
+    <div class="stack">
+      <h3>xargs: biến đầu ra thành <b>đối số</b></h3>
+      <pre class="term">
+$ find ~/lab -name "*.tmp" | xargs rm -v
+$ find ~/lab -type f | xargs ls -lh
+## tương đương, an toàn với tên có dấu cách:
+$ find ~/lab -name "*.tmp" -exec rm -v {} \;</pre>
+      <p class="small muted">Nhiều lệnh (<code>rm</code>, <code>chmod</code>, <code>ls</code>) không đọc stdin – chúng cần <b>đối số</b>. <code>xargs</code> làm cầu nối.</p>
+    </div>
+    <div class="stack">
+      <h3>awk: xử lý theo cột</h3>
+      <pre class="term">
+$ awk -F: '{print $1, $3}' /etc/passwd | head -2
+root 0
+bin 1
+$ awk -F: '$3 &gt;= 1000 {print $1}' /etc/passwd
+nhanle
+$ df -h | awk '{print $5, $6}'</pre>
+      <p class="small muted"><code>-F:</code> = phân cách cột; <code>$1</code> = cột 1; điều kiện đặt trước <code>{ }</code>.</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ · LPI 103.2</p>
+  <h2>Thêm bộ lọc: nl · tr · paste · split · od · *cat</h2>
+  <div class="cols">
+    <pre class="term tight">
+$ nl /etc/hosts                  # đánh số dòng (bỏ dòng trống)
+     1	127.0.0.1   localhost
+$ echo "linux lpi" | tr 'a-z' 'A-Z'
+LINUX LPI
+$ tr -d '\r' &lt; win.txt &gt; unix.txt   # bỏ ký tự CR của Windows
+$ od -c win.txt | head -2           # thấy được \r \n
+0000000   a   b   c  \r  \n
+$ paste ten.txt diem.txt            # ghép theo cột (Tab)
+An      8
+Binh    9
+$ paste -d: ten.txt diem.txt
+An:8
+$ split -l 250000 1trieu.txt phan_  # phan_aa … phan_ad
+$ cat phan_* &gt; ghep.txt
+$ zcat log.gz | grep -c error       # đọc file nén
+$ bzcat a.bz2 | head ; xzcat a.xz | tail</pre>
+    <table class="cheat small">
+      <tr><td>nl</td><td>Đánh số dòng (<code>cat -n</code> đánh cả dòng trống)</td></tr>
+      <tr><td>tr a b</td><td>Thay / xóa (<code>-d</code>) từng ký tự; chỉ đọc stdin</td></tr>
+      <tr><td>paste</td><td>Ghép các file theo cột</td></tr>
+      <tr><td>split -l / -b</td><td>Chia file theo số dòng / kích thước</td></tr>
+      <tr><td>od -c</td><td>Xem từng byte (ký tự ẩn)</td></tr>
+      <tr><td>zcat · bzcat · xzcat</td><td>In nội dung file .gz · .bz2 · .xz</td></tr>
+      <tr><td>head / tail -n</td><td>Đầu / cuối file (đã học)</td></tr>
+    </table>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ · LPI 103.2</p>
+  <h2>Checksum: file có còn nguyên vẹn?</h2>
+  <div class="cols">
+    <pre class="term">
+$ sha256sum 1trieu.txt
+f0f3…9a2c  1trieu.txt
+$ sha256sum 1trieu.txt &gt; 1trieu.sha256
+$ sha256sum -c 1trieu.sha256
+1trieu.txt: OK
+$ echo 1 &gt;&gt; 1trieu.txt
+$ sha256sum -c 1trieu.sha256
+1trieu.txt: FAILED
+sha256sum: WARNING: 1 computed checksum did NOT match
+$ md5sum 1trieu.txt ; sha512sum 1trieu.txt</pre>
+    <div class="stack small">
+      <ul>
+        <li>Chỉ cần đổi <b>1 byte</b>, chuỗi checksum thay đổi hoàn toàn</li>
+        <li>Dùng để kiểm tra file ISO tải về, bản sao lưu, file chép qua mạng</li>
+        <li><code>-c</code> đọc file danh sách và báo OK/FAILED từng file</li>
+      </ul>
+      <div class="callout warn"><span class="lbl">md5 đã cũ</span>md5 vẫn dùng để phát hiện lỗi chép file, nhưng không dùng cho bảo mật. Ưu tiên sha256/sha512.</div>
+      <div class="callout link"><span class="lbl">Liên kết</span>B1: kiểm tra ISO Rocky trước khi cài · B13: kiểm tra bản sao lưu sau khi rsync.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết · LPI 103.7</p>
+  <h2>Regex mở rộng: BRE và ERE</h2>
+  <div class="cols">
+    <div class="stack small">
+      <table>
+        <tr><th>Ý nghĩa</th><th>BRE (<code>grep</code>, <code>sed</code>)</th><th>ERE (<code>grep -E</code>, <code>sed -E</code>)</th></tr>
+        <tr><td>0 hoặc nhiều lần</td><td><code>*</code></td><td><code>*</code></td></tr>
+        <tr><td>1 hoặc nhiều lần</td><td><code>\+</code></td><td><code>+</code></td></tr>
+        <tr><td>0 hoặc 1 lần</td><td><code>\?</code></td><td><code>?</code></td></tr>
+        <tr><td>Từ n đến m lần</td><td><code>\{n,m\}</code></td><td><code>{n,m}</code></td></tr>
+        <tr><td>Nhóm · hoặc</td><td><code>\( \)</code> · <code>\|</code></td><td><code>( )</code> · <code>|</code></td></tr>
+      </table>
+      <table>
+        <tr><td><code>[[:digit:]]</code> <code>[[:alpha:]]</code></td><td>Chữ số · chữ cái</td></tr>
+        <tr><td><code>[[:space:]]</code> <code>[[:upper:]]</code></td><td>Khoảng trắng · chữ hoa</td></tr>
+        <tr><td><code>grep -F</code> (= fgrep)</td><td>Chuỗi cố định, không regex</td></tr>
+      </table>
+    </div>
+    <pre class="term tight">
+$ grep -E '^[0-9]{3}' test_grep.txt
+123linux Athena123
+123LINUX Athena
+$ grep -iE 'linux[0-9]+' test_grep.txt
+linux456 aaa
+LINUX456 123
+$ grep -E '^(root|nhanle):' /etc/passwd
+$ grep -c '[[:digit:]]' test_grep.txt
+7
+$ grep -F 'a.a' test_grep.txt     # "." là dấu chấm thật
+$ grep -Ev '^[[:space:]]*(#|$)' /etc/ssh/sshd_config
+$ man 7 regex</pre>
+  </div>
+  <div class="callout tip"><span class="lbl">Cách nhớ</span>ERE = viết “sạch”, ít dấu <code>\</code>. Khi mẫu có <code>+ ? { } | ( )</code>, dùng <code>grep -E</code>.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ · LPI 103.7 · 103.4</p>
+  <h2>sed nâng cao và here-document</h2>
+  <div class="cols">
+    <div class="stack small">
+      <pre class="term tight">
+$ sed -n '/^root/p' /etc/passwd          # in dòng khớp
+$ sed '1,5d' file                        # xóa dòng 1–5
+$ sed '/^#/d; /^$/d' sshd_config         # 2 lệnh liền nhau
+$ sed -E 's/^([^:]+):.*/\1/' /etc/passwd # nhóm \1 = cột 1
+$ sed -E 's/([0-9]{3})-([0-9]{4})/\2-\1/' &lt;&lt;&lt; "090-1234"
+1234-090
+$ sed '3i\Dong chen o dong 3' file
+$ sed '$a\Dong cuoi' file</pre>
+      <p class="muted">Địa chỉ: số dòng, khoảng <code>1,5</code>, mẫu <code>/regex/</code>, <code>$</code> = dòng cuối.</p>
+    </div>
+    <div class="stack small">
+      <h3>Here-document: đưa nhiều dòng làm stdin</h3>
+      <pre class="term">
+# cat &gt; /etc/motd &lt;&lt; EOF
+Chao mung toi server1 - Cong ty ABC
+Lien he IT: it@abc.local
+EOF
+$ wc -w &lt;&lt;&lt; "mot hai ba"      # here-string
+3</pre>
+      <div class="callout link"><span class="lbl">Liên kết</span>Đăng nhập lại để thấy <code>/etc/motd</code>. B13 dùng here-document để tạo file cấu hình trong script.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab · 60 phút</p>
+  <h2>Phân tích người dùng và log hệ thống</h2>
+  <div class="cols w6">
+    <ol class="steps small">
+      <li>Tạo <code>~/lab5/test_grep.txt</code> bằng vim với nội dung như slide grep. Chạy lại mọi ví dụ, kiểm tra kết quả</li>
+      <li>Đếm số user trong <code>/etc/passwd</code></li>
+      <li>Ghi danh sách username vào <code>~/lab5/users.txt</code>, sắp xếp A→Z</li>
+      <li>Liệt kê user đăng nhập được bằng <code>/bin/bash</code></li>
+      <li>Liệt kê user thường (UID ≥ 1000) kèm thư mục home</li>
+      <li>Thống kê mỗi shell có bao nhiêu user, nhiều nhất lên trên</li>
+      <li>In nội dung <code>/etc/ssh/sshd_config</code> bỏ chú thích và dòng trống, lưu vào <code>sshd.clean</code></li>
+      <li>Từ máy thật, SSH sai mật khẩu 3 lần, rồi đếm số lần “Failed password” trong <code>/var/log/secure</code></li>
+    </ol>
+    <div class="callout tip"><span class="lbl">Gợi ý</span>Xây dựng từng bước: chạy lệnh đầu → xem kết quả → thêm <code>|</code> lệnh tiếp. Đừng viết cả dây chuyền một lần.</div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab · Gợi ý lời giải</p>
+  <h2>Lời giải tham khảo</h2>
+  <details class="answer"><summary>Hiện lời giải</summary>
+  <pre class="term">
+$ wc -l &lt; /etc/passwd
+$ cut -d: -f1 /etc/passwd | sort &gt; ~/lab5/users.txt
+$ grep '/bin/bash$' /etc/passwd | cut -d: -f1
+$ awk -F: '$3 &gt;= 1000 {print $1, $6}' /etc/passwd
+$ cut -d: -f7 /etc/passwd | sort | uniq -c | sort -rn
+$ grep -Ev '^#|^$' /etc/ssh/sshd_config &gt; ~/lab5/sshd.clean
+# grep -c 'Failed password' /var/log/secure
+# grep 'Failed password' /var/log/secure | awk '{print $(NF-3)}' | sort | uniq -c</pre></details>
+  <div class="callout info"><span class="lbl">Ubuntu</span>Log đăng nhập nằm ở <code>/var/log/auth.log</code>. Trên cả hai: <code>journalctl -u sshd</code> (Ubuntu: <code>-u ssh</code>).</div>
+  <aside class="notes">Lệnh cuối: $(NF-3) là cột IP trong dòng "Failed password for X from IP port N ssh2". Giải thích NF = số cột.</aside>
+</section>
+
+<section class="slide">
+  <p class="kicker ex">Bài tập</p>
+  <h2>Luyện tập</h2>
+  <ol class="ex small">
+    <li>Lưu danh sách file trong <code>/etc</code> vào <code>etc.txt</code>, sau đó nối thêm danh sách <code>/var</code> vào cuối.
+      <details class="answer"><summary>Đáp án</summary><code>ls /etc &gt; etc.txt; ls /var &gt;&gt; etc.txt</code></details></li>
+    <li>Chạy <code>find / -name passwd</code> nhưng ẩn mọi thông báo lỗi.
+      <details class="answer"><summary>Đáp án</summary><code>find / -name passwd 2&gt;/dev/null</code></details></li>
+    <li>Đếm số dòng trong <code>/etc/services</code> có chứa “tcp”.
+      <details class="answer"><summary>Đáp án</summary><code>grep -c tcp /etc/services</code></details></li>
+    <li>Hiện 5 file lớn nhất trong <code>/var/log</code>.
+      <details class="answer"><summary>Đáp án</summary><code>ls -lS /var/log | head -6</code> hoặc <code>du -a /var/log | sort -rn | head -5</code></details></li>
+    <li>In các dòng của <code>/etc/group</code> có nhóm bắt đầu bằng chữ “w”.
+      <details class="answer"><summary>Đáp án</summary><code>grep '^w' /etc/group</code></details></li>
+    <li>Tìm mọi file <code>.txt</code> trong <code>~/lab5</code> rồi đếm tổng số dòng của chúng.
+      <details class="answer"><summary>Đáp án</summary><code>find ~/lab5 -name "*.txt" | xargs wc -l</code></details></li>
+  </ol>
+</section>
+
+<section class="slide" data-title="Trắc nghiệm nhanh">
+  <p class="kicker ex">Trắc nghiệm nhanh · 5 phút</p>
+  <h2>Kiểm tra trước khi về</h2>
+  <ol class="ex small">
+    <li>Ghi cả stdout và stderr của <code>cmd</code> vào <code>out.txt</code>?
+      <details class="answer"><summary>Đáp án</summary><code>cmd &gt; out.txt 2&gt;&amp;1</code> (hoặc <code>cmd &amp;&gt; out.txt</code>). Đảo thứ tự <code>2&gt;&amp;1 &gt; out.txt</code> thì lỗi vẫn ra màn hình.</details></li>
+    <li>Với <code>grep -E</code>, mẫu <code>ab+c</code> khớp <code>ac</code> không?
+      <details class="answer"><summary>Đáp án</summary>Không – <code>+</code> cần ít nhất một chữ b.</details></li>
+    <li>Kiểm tra các file theo danh sách checksum trong <code>SHA256SUMS</code>?
+      <details class="answer"><summary>Đáp án</summary><code>sha256sum -c SHA256SUMS</code></details></li>
+  </ol>
+  <div class="chips"><a class="btn" href="quiz.html?b=5">Làm đủ 22 câu của buổi 05 →</a><a class="btn ghost" href="quiz.html?obj=103.7">Luyện mục tiêu 103.7</a></div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Tổng kết</p>
+  <h2>Bảng lệnh buổi 05 &amp; bài về nhà</h2>
+  <div class="cols">
+    <table class="cheat small">
+      <tr><td>cat less head tail</td><td>Xem file</td></tr>
+      <tr><td>&gt; &gt;&gt; 2&gt; &amp;&gt; &lt;</td><td>Chuyển hướng</td></tr>
+      <tr><td>| · tee</td><td>Pipe, vừa xem vừa lưu</td></tr>
+      <tr><td>grep -i -v -n -c -E</td><td>Lọc dòng</td></tr>
+      <tr><td>^ $ . [ ] |</td><td>Regex cơ bản</td></tr>
+      <tr><td>cut sort uniq wc tr</td><td>Xử lý cột, đếm</td></tr>
+      <tr><td>xargs · awk</td><td>Đối số hóa · xử lý cột</td></tr>
+    </table>
+    <div class="stack">
+      <h3>Bài về nhà</h3>
+      <ol class="small">
+        <li>Viết 1 dây chuyền lệnh in ra 3 thư mục chiếm nhiều dung lượng nhất trong <code>/usr</code></li>
+        <li>Đọc <code>man grep</code>: tìm hiểu <code>-A</code>, <code>-B</code>, <code>-o</code></li>
+      </ol>
+      <div class="callout info"><span class="lbl">Buổi 06</span>Tiến trình (<code>ps</code>, <code>top</code>, <code>kill</code>), giám sát tài nguyên và nén/giải nén với <code>tar</code>.</div>
+    </div>
+  </div>
+</section>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

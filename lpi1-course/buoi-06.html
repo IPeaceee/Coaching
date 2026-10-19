@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LPI-1 · Buổi 06 — Tiến trình &amp; nén file</title>
+<link rel="stylesheet" href="assets/deck.css">
+</head>
+<body>
+
+<section class="slide title">
+  <div class="num">06</div>
+  <h1>Tiến trình, giám sát hệ thống &amp; nén/giải nén</h1>
+  <p class="sub"><code>ps</code> · <code>top</code> · <code>kill</code> · jobs · <code>free</code> · <code>df</code> · <code>du</code> · <code>ss</code> · <code>gzip</code> · <code>bzip2</code> · <code>xz</code> · <code>tar</code> · <code>zip</code></p>
+  <div class="chips"><span class="chip a">LPI-1 · Buổi 6/14</span><span class="chip lpi">103.5</span><span class="chip lpi">103.6</span><span class="chip lpi">103.3</span><span class="chip">~3 giờ</span><span class="chip">Lab: Xử lý tiến trình “ăn” CPU · Sao lưu /etc</span></div>
+  <div class="prompt">$ tar -czvf etc-$(date +%F).tar.gz /etc</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Mục tiêu buổi học</p>
+  <h2>Sau buổi này bạn có thể…</h2>
+  <div class="cols">
+    <div class="stack">
+      <h3>Phần A — Tiến trình &amp; tài nguyên</h3>
+      <ul class="small">
+        <li>Liệt kê, tìm, theo dõi tiến trình (<code>ps</code>, <code>top</code>)</li>
+        <li>Dừng tiến trình đúng cách bằng tín hiệu</li>
+        <li>Chạy lệnh nền, đưa lên/xuống foreground; giữ phiên bằng tmux</li>
+        <li>Đổi độ ưu tiên bằng <code>nice</code>, <code>renice</code></li>
+        <li>Kiểm tra RAM, đĩa, tải CPU, cổng đang mở</li>
+      </ul>
+    </div>
+    <div class="stack">
+      <h3>Phần B — Nén &amp; lưu trữ</h3>
+      <ul class="small">
+        <li>Nén/giải nén từng file: gzip, bzip2, xz</li>
+        <li>Đóng gói thư mục bằng <code>tar</code> (kèm nén), <code>cpio</code>; chép thô bằng <code>dd</code></li>
+        <li>Làm việc với file <code>.zip</code>, <code>.rar</code></li>
+        <li>Tạo bản sao lưu có ngày tháng</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-title="Hành trình">
+  <p class="kicker">Hành trình · server1 của Công ty ABC</p>
+  <h2>Buổi 06 nằm ở đâu?</h2>
+  <div class="journey">
+    <div class="past"><h3>Dùng lại từ trước</h3><ul class="small"><li>B5: <code>ps aux | grep</code>, <code>2&gt;/dev/null</code></li><li>B5: <code>$(date +%F)</code> – chèn ngày vào tên file</li><li>B3: thư mục <code>~/congty</code> cần sao lưu</li></ul></div>
+    <div class="now"><h3>Hôm nay server1 có thêm</h3><ul class="small"><li>Biết xử lý tiến trình treo, “ăn” CPU</li><li>Nhường CPU cho việc nặng bằng <code>nice</code></li><li><code>/backup/etc-&lt;ngày&gt;.tar.gz</code> – bản sao lưu đầu tiên</li></ul></div>
+    <div class="next"><h3>Dùng tiếp ở</h3><ul class="small"><li>B7: <code>tar -xzf</code> mã nguồn, <code>rpm2cpio | cpio</code></li><li>B11: <code>dd</code> tạo ổ đĩa ảo để thực hành</li><li>B12–13: dịch vụ nền (systemd) và sao lưu tự động (cron)</li></ul></div>
+  </div>
+  <div class="objline">Mục tiêu LPI: <span class="chip lpi">103.5 Tiến trình · 4đ</span><span class="chip lpi">103.6 Độ ưu tiên · 2đ</span><span class="chip lpi">103.3 tar, cpio, dd · 4đ</span></div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Tiến trình (process) là gì?</h2>
+  <div class="cols">
+    <div class="stack small">
+      <p>Mỗi chương trình đang chạy là một <b>tiến trình</b>, có:</p>
+      <ul>
+        <li><b>PID</b> – mã số duy nhất</li>
+        <li><b>PPID</b> – PID của tiến trình cha</li>
+        <li><b>User</b> chạy nó, % CPU, % RAM, trạng thái</li>
+      </ul>
+      <p>PID 1 = <b>systemd</b> – cha của mọi tiến trình.</p>
+      <div class="callout"><span class="lbl">Dịch vụ (daemon)</span>Tiến trình chạy nền liên tục, tên thường kết thúc bằng <b>d</b>: <code>sshd</code>, <code>httpd</code>, <code>crond</code>.</div>
+    </div>
+    <pre class="term">
+$ ps
+    PID TTY          TIME CMD
+   1450 pts/0    00:00:00 bash
+   1502 pts/0    00:00:00 ps
+$ ps aux | less        # mọi tiến trình, đủ cột
+$ ps -eo pid,ppid,user,comm | head -3
+    PID    PPID USER     COMMAND
+      1       0 root     systemd
+      2       0 root     kthreadd
+$ ps -ef | grep sshd
+$ ps -p 1021
+$ pgrep -l sshd
+1021 sshd
+$ pstree | head -5</pre>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2><code>top</code> — theo dõi theo thời gian thực</h2>
+  <pre class="term tight">
+top - 09:12:41 up  1:12,  1 user,  load average: 0.95, 0.40, 0.15
+Tasks: 112 total,   2 running, 110 sleeping,   0 stopped,   0 zombie
+%Cpu(s): 49.8 us,  0.3 sy,  0.0 ni, 49.9 id,  0.0 wa
+MiB Mem :   1735.0 total,   1080.2 free,    402.5 used,    252.3 buff/cache
+MiB Swap:   2048.0 total,   2048.0 free,      0.0 used.   1332.5 avail Mem
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+   1688 nhanle    20   0    7244   1792   1664 R  99.7   0.1   0:31.20 yes
+   1021 root      20   0   16120   9216   7936 S   0.0   0.5   0:00.02 sshd</pre>
+  <div class="cols">
+    <table class="small">
+      <tr><td><kbd>P</kbd> / <kbd>M</kbd></td><td>Sắp xếp theo CPU / RAM</td></tr>
+      <tr><td><kbd>k</kbd></td><td>Kill (nhập PID)</td></tr>
+      <tr><td><kbd>1</kbd></td><td>Xem từng core CPU</td></tr>
+      <tr><td><kbd>q</kbd></td><td>Thoát</td></tr>
+    </table>
+    <div class="stack small">
+      <div class="callout"><span class="lbl">Load average</span>Tải trung bình 1, 5, 15 phút. So với số core: máy 2 core, load &gt; 2 kéo dài = quá tải.</div>
+      <p class="muted"><code>top -d 10</code>: làm mới mỗi 10 giây · <code>htop</code> (EPEL) đẹp và dễ dùng hơn.</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Dừng tiến trình: <code>kill</code>, <code>pkill</code>, <code>killall</code></h2>
+  <div class="cols">
+    <div class="stack">
+      <table class="small">
+        <tr><th>Tín hiệu</th><th>Số</th><th>Ý nghĩa</th></tr>
+        <tr><td>SIGTERM</td><td>15</td><td>“Vui lòng dừng” – chương trình dọn dẹp, lưu dữ liệu rồi thoát. <b>Mặc định</b></td></tr>
+        <tr><td>SIGKILL</td><td>9</td><td>Kernel “giết” ngay – có thể <b>mất dữ liệu</b></td></tr>
+        <tr><td>SIGHUP</td><td>1</td><td>Nhiều daemon hiểu là “đọc lại cấu hình”</td></tr>
+        <tr><td>SIGINT</td><td>2</td><td>Giống bấm <kbd>Ctrl</kbd>+<kbd>C</kbd></td></tr>
+      </table>
+      <div class="callout tip"><span class="lbl">Quy trình chuẩn</span>Thử <code>kill PID</code> (15) trước → đợi vài giây → vẫn còn mới <code>kill -9 PID</code>.</div>
+    </div>
+    <pre class="term">
+$ sleep 1000 &amp;
+[1] 1720
+$ ps -p 1720
+    PID TTY          TIME CMD
+   1720 pts/0    00:00:00 sleep
+$ kill 1720
+[1]+  Terminated              sleep 1000
+$ kill -9 1735
+$ kill -l             # liệt kê mọi tín hiệu
+$ pkill -u test       # dừng mọi tiến trình của user test
+$ killall yes         # theo tên chương trình</pre>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Chạy nền và job control</h2>
+  <div class="cols">
+    <pre class="term">
+$ sleep 300 &amp;            # chạy nền ngay từ đầu
+[1] 1801
+$ sleep 600
+^Z                        # Ctrl+Z: tạm dừng
+[2]+  Stopped                 sleep 600
+$ jobs
+[1]-  Running                 sleep 300 &amp;
+[2]+  Stopped                 sleep 600
+$ bg %2                   # cho job 2 chạy tiếp ở nền
+$ fg %1                   # đưa job 1 lên foreground
+^C
+$ nohup ./backup.sh &amp;     # chạy tiếp kể cả khi đăng xuất</pre>
+    <table class="cheat small">
+      <tr><td>lệnh &amp;</td><td>Chạy nền</td></tr>
+      <tr><td>Ctrl+Z</td><td>Tạm dừng job đang chạy</td></tr>
+      <tr><td>jobs</td><td>Liệt kê job của shell hiện tại</td></tr>
+      <tr><td>bg %n</td><td>Chạy tiếp job n ở nền</td></tr>
+      <tr><td>fg %n</td><td>Đưa job n lên foreground</td></tr>
+      <tr><td>nohup</td><td>Không bị dừng khi thoát phiên</td></tr>
+    </table>
+  </div>
+  <div class="callout legacy"><span class="lbl">Ghi chú gốc</span><code>gedit test123.txt &amp;</code> – mở ứng dụng đồ họa mà vẫn dùng được terminal.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết · LPI 103.6</p>
+  <h2>Độ ưu tiên: <code>nice</code> và <code>renice</code></h2>
+  <div class="cols">
+    <div class="stack small">
+      <div class="center"><span class="anno" style="font-size:26px"><span style="color:var(--red)">-20</span> ← ưu tiên cao · <b>0</b> mặc định · ưu tiên thấp → <span style="color:var(--accent)">19</span></span></div>
+      <ul>
+        <li>Niceness càng cao, tiến trình càng “nhường” CPU cho người khác</li>
+        <li><code>nice lệnh</code> không ghi <code>-n</code> = niceness 10</li>
+        <li>User thường chỉ được <b>tăng</b> niceness; chỉ root được giảm (tăng ưu tiên)</li>
+        <li>Cột <b>NI</b> trong <code>top</code>/<code>ps</code>; cột PR = 20 + NI</li>
+      </ul>
+      <div class="callout tip"><span class="lbl">Khi nào dùng?</span>Nén sao lưu, quét virus, biên dịch… chạy với <code>nice -n 19</code> để web server không bị chậm.</div>
+    </div>
+    <pre class="term">
+$ nice -n 19 tar -czf /tmp/etc.tgz /etc 2&gt;/dev/null &amp;
+[1] 2345
+$ ps -o pid,ni,comm -p 2345
+    PID  NI COMMAND
+   2345  19 tar
+$ yes &gt; /dev/null &amp;
+[2] 2350
+$ renice -n 15 -p 2350
+2350 (process ID) old priority 0, new priority 15
+$ renice -n 5 -p 2350
+renice: failed to set priority for 2350 (process ID): Permission denied
+# renice -n -5 -p 2350
+## trong top: bấm r, nhập PID và giá trị mới</pre>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ · LPI 103.5</p>
+  <h2>Theo dõi và giữ phiên làm việc: <code>watch</code>, <code>tmux</code>, <code>screen</code></h2>
+  <div class="cols">
+    <div class="stack">
+      <pre class="term">
+$ watch -n 2 'df -h /; free -m'   # làm mới mỗi 2 giây
+# dnf install -y tmux
+$ tmux new -s backup              # mở phiên tên "backup"
+$ tar -czf /tmp/usr.tgz /usr      # việc chạy lâu
+## Ctrl+B rồi D: tách phiên, đăng xuất thoải mái
+$ tmux ls
+backup: 1 windows (created Mon Oct 19 09:40:12 2026)
+$ tmux attach -t backup           # quay lại xem tiếp</pre>
+    </div>
+    <div class="stack small">
+      <table>
+        <tr><th></th><th>tmux</th><th>screen (EPEL)</th></tr>
+        <tr><td>Phiên mới</td><td><code>tmux new -s ten</code></td><td><code>screen -S ten</code></td></tr>
+        <tr><td>Tách phiên</td><td><kbd>Ctrl</kbd>+<kbd>B</kbd>, <kbd>D</kbd></td><td><kbd>Ctrl</kbd>+<kbd>A</kbd>, <kbd>D</kbd></td></tr>
+        <tr><td>Liệt kê</td><td><code>tmux ls</code></td><td><code>screen -ls</code></td></tr>
+        <tr><td>Gắn lại</td><td><code>tmux attach -t ten</code></td><td><code>screen -r ten</code></td></tr>
+      </table>
+      <div class="callout"><span class="lbl">nohup hay tmux?</span><code>nohup</code>: chạy tiếp sau đăng xuất nhưng không xem lại màn hình được. tmux/screen: quay lại đúng màn hình đang làm – rất hữu ích khi SSH bị rớt (B13).</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Kiểm tra tài nguyên: RAM, đĩa, tải</h2>
+  <div class="cols">
+    <div class="stack">
+      <pre class="term tight">
+$ uptime
+ 09:20:11 up 1:20, 1 user, load average: 0.02, 0.10, 0.09
+$ free -m
+        total  used  free  shared  buff/cache  available
+Mem:     1735   402  1080       8         252       1332
+Swap:    2047     0  2047
+$ df -h
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda3        17G  1.7G   16G  10% /
+/dev/sda1       960M  250M  711M  27% /boot
+/dev/sdb1        10G  104M  9.9G   2% /home
+# du -sh /var/log
+21M     /var/log
+# du -sh /var/* 2&gt;/dev/null | sort -h | tail -3</pre>
+    </div>
+    <div class="stack small">
+      <table class="cheat">
+        <tr><td>uptime · w</td><td>Thời gian chạy, tải CPU</td></tr>
+        <tr><td>free -h</td><td>RAM &amp; swap</td></tr>
+        <tr><td>df -h</td><td>Dung lượng từng phân vùng</td></tr>
+        <tr><td>du -sh dir</td><td>Tổng dung lượng 1 thư mục</td></tr>
+        <tr><td>vmstat 1 5</td><td>CPU/RAM/IO mỗi giây, 5 lần</td></tr>
+      </table>
+      <div class="callout"><span class="lbl">“free” ít không có nghĩa là thiếu RAM</span>Linux dùng RAM trống làm cache. Hãy nhìn cột <b>available</b>.</div>
+      <div class="callout legacy"><span class="lbl">Ghi chú gốc</span><code>sync; echo 3 &gt; /proc/sys/vm/drop_caches</code> giải phóng cache – chỉ dùng để thử nghiệm, không cần trên server bình thường.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Cổng và kết nối mạng đang mở</h2>
+  <div class="cols w6">
+    <pre class="term tight">
+# ss -tulnp
+Netid State  Local Address:Port  Process
+udp   UNCONN 127.0.0.1:323       users:(("chronyd",pid=812))
+tcp   LISTEN 0.0.0.0:22          users:(("sshd",pid=1021))
+tcp   LISTEN [::]:22             users:(("sshd",pid=1021))
+# ss -tn state established
+# ss -tulnp | grep :22</pre>
+    <table class="cheat small">
+      <tr><td>-t / -u</td><td>TCP / UDP</td></tr>
+      <tr><td>-l</td><td>Đang lắng nghe (listen)</td></tr>
+      <tr><td>-n</td><td>Hiện số (IP, port) thay vì tên</td></tr>
+      <tr><td>-p</td><td>Tiến trình nào mở cổng</td></tr>
+      <tr><td>-a</td><td>Tất cả (listen + đã kết nối)</td></tr>
+    </table>
+  </div>
+  <div class="callout legacy"><span class="lbl">Hệ cũ (ghi chú gốc)</span><code>netstat -ltunp</code> cùng ý nghĩa với <code>ss -ltunp</code>. Trên Rocky 9 cần <code>dnf install net-tools</code> mới có <code>netstat</code>, <code>ifconfig</code>, <code>route</code>.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Nén từng file: gzip · bzip2 · xz</h2>
+  <div class="cols">
+    <pre class="term">
+$ seq 1000000 &gt; 1trieu.txt
+$ gzip  -k 1trieu.txt     # -k: giữ file gốc
+$ bzip2 -k 1trieu.txt
+$ xz    -k 1trieu.txt
+$ ls -lh 1trieu*
+$ gzip -c 1trieu.txt &gt; ban-sao.gz   # ghi ra stdout
+$ gunzip 1trieu.txt.gz        # = gzip -d
+$ bunzip2 1trieu.txt.bz2      # = bzip2 -d
+$ unxz 1trieu.txt.xz          # = xz -d
+$ zcat ban-sao.gz | head -3   # đọc không cần giải nén</pre>
+    <div class="stack small">
+      <table>
+        <tr><th>Công cụ</th><th>Đuôi</th><th>Tốc độ</th><th>Tỷ lệ nén</th></tr>
+        <tr><td>gzip</td><td>.gz</td><td>Nhanh nhất</td><td>Khá</td></tr>
+        <tr><td>bzip2</td><td>.bz2</td><td>Chậm hơn</td><td>Tốt hơn</td></tr>
+        <tr><td>xz</td><td>.xz</td><td>Chậm nhất</td><td>Tốt nhất</td></tr>
+      </table>
+      <div class="callout warn"><span class="lbl">Chú ý</span>Mặc định <code>gzip file</code> <b>thay thế</b> file gốc bằng <code>file.gz</code>. Dùng <code>-k</code> hoặc <code>-c &gt;</code> để giữ lại.</div>
+      <div class="callout"><span class="lbl">Quan trọng</span>gzip/bzip2/xz chỉ nén <b>từng file</b>. Muốn nén cả thư mục → đóng gói bằng <code>tar</code> trước.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2><code>tar</code> — đóng gói (và nén) thư mục</h2>
+  <div class="cols">
+    <div class="stack">
+      <pre class="term">
+$ tar -cvf test.tar test1 test2       # chỉ đóng gói
+$ tar -czvf test.tar.gz test          # + nén gzip
+$ tar -cjvf test.tar.bz2 test         # + nén bzip2
+$ tar -cJvf test.tar.xz test          # + nén xz
+$ tar -tzvf test.tar.gz               # xem bên trong
+$ tar -xzvf test.tar.gz               # giải nén tại chỗ
+# tar -xvf test.tar.gz -C /opt        # giải nén vào /opt</pre>
+      <div class="callout tip"><span class="lbl">Cách nhớ</span><b>c</b>reate · e<b>x</b>tract · lis<b>t</b> + <b>z</b> gzip · <b>j</b> bzip2 · <b>J</b> xz + <b>v</b>erbose + <b>f</b> tên file (luôn đứng cuối cụm).</div>
+    </div>
+    <div class="stack small">
+      <table class="cheat">
+        <tr><td>-c</td><td>Tạo gói mới</td></tr>
+        <tr><td>-x</td><td>Giải nén</td></tr>
+        <tr><td>-t</td><td>Liệt kê nội dung</td></tr>
+        <tr><td>-z -j -J</td><td>Nén gzip / bzip2 / xz</td></tr>
+        <tr><td>-v</td><td>Hiện tên file đang xử lý</td></tr>
+        <tr><td>-f file</td><td>Tên file tar</td></tr>
+        <tr><td>-C dir</td><td>Giải nén vào thư mục dir</td></tr>
+        <tr><td>-p</td><td>Giữ nguyên quyền</td></tr>
+      </table>
+      <p class="muted">Khi giải nén, <code>tar -xf</code> tự nhận diện kiểu nén – không bắt buộc z/j/J.</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ · LPI 103.3</p>
+  <h2><code>cpio</code> và <code>dd</code> — hai công cụ “cổ” vẫn có trong đề</h2>
+  <div class="cols">
+    <div class="stack small">
+      <h3>cpio: đóng gói theo danh sách file từ stdin</h3>
+      <pre class="term tight">
+$ find congty -name "*.txt" | cpio -ov &gt; congty.cpio
+$ cpio -tv &lt; congty.cpio          # liệt kê
+$ mkdir /tmp/x &amp;&amp; cd /tmp/x
+$ cpio -idv &lt; ~/congty.cpio       # i: giải, d: tạo thư mục</pre>
+      <p class="muted"><code>-o</code> copy-out (tạo) · <code>-i</code> copy-in (giải) · <code>-t</code> liệt kê. initramfs (B14) và gói RPM (B7) bên trong đều là cpio.</p>
+    </div>
+    <div class="stack small">
+      <h3>dd: chép từng byte giữa file và thiết bị</h3>
+      <pre class="term tight">
+# dd if=/dev/sda of=/root/mbr.bin bs=512 count=1
+# dd if=/dev/zero of=/root/disk.img bs=1M count=1024
+# dd if=rocky.iso of=/dev/sdX bs=4M status=progress</pre>
+      <table>
+        <tr><td><code>if=</code> / <code>of=</code></td><td>Nguồn / đích</td></tr>
+        <tr><td><code>bs=</code> · <code>count=</code></td><td>Kích thước khối · số khối</td></tr>
+      </table>
+      <div class="callout warn"><span class="lbl">Cực kỳ cẩn thận</span>Gõ nhầm <code>of=/dev/sda</code> là mất sạch ổ đĩa, không hỏi lại.</div>
+      <div class="callout link"><span class="lbl">Liên kết</span><code>/root/disk.img</code> 1 GB sẽ làm “ổ đĩa ảo” cho lab gdisk/fsck ở B11.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>zip / unzip và rar / unrar</h2>
+  <div class="cols">
+    <div class="stack">
+      <pre class="term">
+# dnf install -y zip unzip
+$ zip -r test_compression.zip test_compression
+$ unzip -l test_compression.zip       # xem bên trong
+$ unzip test_compression.zip -d /tmp/out</pre>
+      <p class="small muted">Dùng khi trao đổi file với người dùng Windows.</p>
+    </div>
+    <div class="stack">
+      <pre class="term">
+$ unrar x test_compression.rar
+$ rar a test_compression.rar test_compression</pre>
+      <div class="callout legacy"><span class="lbl">Ghi chú</span><code>rar</code>/<code>unrar</code> là phần mềm không tự do – trên Rocky phải cài từ kho bên ngoài (RPM Fusion). Thay thế mã nguồn mở: <code>7z</code> (gói <code>p7zip</code> trong EPEL) đọc được .rar.</div>
+    </div>
+  </div>
+  <div class="callout tip"><span class="lbl">Tạo tên có ngày tháng</span><code>tar -czf /backup/etc-$(date +%F).tar.gz /etc</code> → <code>etc-2026-10-19.tar.gz</code>. <code>$( )</code> chạy lệnh bên trong và chèn kết quả.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab A · 35 phút</p>
+  <h2>Xử lý tiến trình “ăn” CPU</h2>
+  <ol class="steps small">
+    <li>Mở 2 phiên SSH/console vào server (cùng user thường)</li>
+    <li>Phiên 1: chạy <code>yes &gt; /dev/null &amp;</code> <b>ba</b> lần (nhiều hơn số CPU). Ghi lại 3 PID</li>
+    <li>Phiên 2: chạy <code>top</code>, sắp xếp theo CPU. <code>renice -n 19</code> một tiến trình – %CPU của nó thay đổi thế nào?</li>
+    <li>Dùng <code>ps aux | grep yes</code> và <code>pgrep yes</code> để tìm PID</li>
+    <li>Dừng tiến trình thứ nhất bằng SIGTERM, tiến trình thứ hai bằng phím <kbd>k</kbd> trong top</li>
+    <li>Chạy <code>sleep 600</code>, tạm dừng bằng <kbd>Ctrl</kbd>+<kbd>Z</kbd>, cho chạy nền bằng <code>bg</code>, kiểm tra <code>jobs</code>, rồi <code>fg</code> và <kbd>Ctrl</kbd>+<kbd>C</kbd></li>
+    <li>Tìm xem tiến trình nào đang mở cổng 22, PID của nó là bao nhiêu</li>
+    <li>Ghi lại: RAM available, % dùng của <code>/</code>, thư mục lớn nhất trong <code>/var</code></li>
+  </ol>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab B · 35 phút</p>
+  <h2>So sánh thuật toán nén &amp; sao lưu /etc</h2>
+  <div class="cols">
+    <ol class="steps small">
+      <li>Tạo <code>~/lab6/1trieu.txt</code> bằng <code>seq 1000000</code></li>
+      <li>Nén bằng gzip, bzip2, xz (giữ gốc). Đo thời gian bằng <code>time</code>, điền bảng bên phải</li>
+      <li>Root: tạo <code>/backup</code>, đóng gói <code>/etc</code> thành <code>/backup/etc-&lt;ngày&gt;.tar.gz</code></li>
+      <li>Liệt kê nội dung gói, tìm file <code>etc/hosts</code> bên trong</li>
+      <li>Giải nén vào <code>/tmp/restore</code>, so sánh: <code>diff /etc/hosts /tmp/restore/etc/hosts</code></li>
+      <li>Chỉ giải nén 1 file: <code>tar -xzf gói.tar.gz -C /tmp etc/hosts</code></li>
+    </ol>
+    <div class="stack">
+      <table class="grid small">
+        <tr><th>Cách nén</th><th>Kích thước</th><th>Thời gian</th></tr>
+        <tr><td>gốc (.txt)</td><td>…</td><td>—</td></tr>
+        <tr><td>gzip</td><td>…</td><td>…</td></tr>
+        <tr><td>bzip2</td><td>…</td><td>…</td></tr>
+        <tr><td>xz</td><td>…</td><td>…</td></tr>
+      </table>
+      <pre class="term">
+$ time gzip -k 1trieu.txt
+$ ls -lh 1trieu.txt*</pre>
+      <details class="answer"><summary>Lời giải bước 3–5</summary>
+      <pre class="term">
+# mkdir -p /backup
+# tar -czvf /backup/etc-$(date +%F).tar.gz /etc
+# tar -tzvf /backup/etc-*.tar.gz | grep 'etc/hosts$'
+# mkdir -p /tmp/restore
+# tar -xzf /backup/etc-*.tar.gz -C /tmp/restore
+# diff /etc/hosts /tmp/restore/etc/hosts &amp;&amp; echo GIONG</pre></details>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker ex">Bài tập</p>
+  <h2>Luyện tập</h2>
+  <ol class="ex small">
+    <li>Tìm PID của tiến trình <code>crond</code> bằng 2 cách khác nhau.
+      <details class="answer"><summary>Đáp án</summary><code>pgrep crond</code> · <code>ps aux | grep crond</code> · <code>pidof crond</code></details></li>
+    <li>Tiến trình PID 2345 không chịu dừng với <code>kill 2345</code>. Làm gì tiếp?
+      <details class="answer"><summary>Đáp án</summary><code>kill -9 2345</code> (SIGKILL) – chấp nhận rủi ro mất dữ liệu chưa lưu.</details></li>
+    <li>Thư mục nào trong <code>/usr</code> chiếm nhiều dung lượng nhất?
+      <details class="answer"><summary>Đáp án</summary><code>du -sh /usr/* | sort -h | tail -1</code></details></li>
+    <li>Đóng gói thư mục <code>~/congty</code> thành file nén bzip2.
+      <details class="answer"><summary>Đáp án</summary><code>tar -cjvf congty.tar.bz2 ~/congty</code></details></li>
+    <li>Xem file <code>backup.tar.xz</code> có chứa gì mà không giải nén.
+      <details class="answer"><summary>Đáp án</summary><code>tar -tJvf backup.tar.xz</code> (hoặc <code>tar -tvf</code>)</details></li>
+    <li>Cổng nào trên máy đang được tiến trình <code>chronyd</code> lắng nghe?
+      <details class="answer"><summary>Đáp án</summary><code>ss -tulnp | grep chronyd</code> → UDP 323.</details></li>
+  </ol>
+</section>
+
+<section class="slide" data-title="Trắc nghiệm nhanh">
+  <p class="kicker ex">Trắc nghiệm nhanh · 5 phút</p>
+  <h2>Kiểm tra trước khi về</h2>
+  <ol class="ex small">
+    <li><code>kill 1234</code> không ghi tín hiệu thì gửi tín hiệu nào?
+      <details class="answer"><summary>Đáp án</summary>SIGTERM (15).</details></li>
+    <li>Dải niceness và giá trị mặc định? User thường có giảm niceness được không?
+      <details class="answer"><summary>Đáp án</summary>-20 → 19, mặc định 0. User thường chỉ được tăng; giảm cần root.</details></li>
+    <li>Giải nén <code>f.tar.gz</code> vào <code>/opt</code>?
+      <details class="answer"><summary>Đáp án</summary><code>tar -xzf f.tar.gz -C /opt</code></details></li>
+  </ol>
+  <div class="chips"><a class="btn" href="quiz.html?b=6">Làm đủ 17 câu của buổi 06 →</a><a class="btn ghost" href="quiz.html?obj=103.5">Luyện mục tiêu 103.5</a></div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Tổng kết</p>
+  <h2>Bảng lệnh buổi 06 &amp; bài về nhà</h2>
+  <div class="cols">
+    <table class="cheat small">
+      <tr><td>ps aux · pgrep · pstree</td><td>Liệt kê tiến trình</td></tr>
+      <tr><td>top · htop</td><td>Theo dõi thời gian thực</td></tr>
+      <tr><td>kill [-9] · pkill · killall</td><td>Gửi tín hiệu</td></tr>
+      <tr><td>&amp; · jobs · fg · bg</td><td>Job control</td></tr>
+      <tr><td>free · df · du · uptime</td><td>Tài nguyên</td></tr>
+      <tr><td>ss -tulnp</td><td>Cổng đang mở</td></tr>
+      <tr><td>gzip · bzip2 · xz (-d -k)</td><td>Nén từng file</td></tr>
+      <tr><td>tar -czvf / -xzvf / -tzvf</td><td>Đóng gói thư mục</td></tr>
+      <tr><td>zip -r · unzip</td><td>File .zip</td></tr>
+    </table>
+    <div class="stack">
+      <h3>Bài về nhà</h3>
+      <ol class="small">
+        <li>Hoàn thành bảng so sánh nén ở Lab B</li>
+        <li>Viết 1 lệnh sao lưu thư mục home của bạn thành <code>home-&lt;user&gt;-&lt;ngày&gt;.tar.gz</code></li>
+      </ol>
+      <div class="callout info"><span class="lbl">Buổi 07</span>Cài đặt phần mềm: <code>rpm</code>, <code>dnf</code>, <code>apt</code>, kho phần mềm và biên dịch từ mã nguồn.</div>
+    </div>
+  </div>
+</section>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

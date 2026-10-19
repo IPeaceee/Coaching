@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LPI-1 · Buổi 13 — SSH, rsync &amp; crontab</title>
+<link rel="stylesheet" href="assets/deck.css">
+</head>
+<body>
+
+<section class="slide title">
+  <div class="num">13</div>
+  <h1>SSH, rsync, crontab &amp; script sao lưu tự động</h1>
+  <p class="sub">Quản trị từ xa an toàn, đăng nhập bằng khóa, đồng bộ dữ liệu giữa hai máy và lên lịch chạy tự động.</p>
+  <div class="chips"><span class="chip a">LPI-1 · Buổi 13/14</span><span class="chip lpi">110.3</span><span class="chip lpi">107.2</span><span class="chip lpi">105.2</span><span class="chip">bài thi 102</span><span class="chip">~3 giờ</span><span class="chip">Lab: Hệ thống backup 2 máy, 5 phút/lần</span></div>
+  <div class="prompt">*/5 * * * * root /root/rsync-home.sh</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Mục tiêu buổi học</p>
+  <h2>Sau buổi này bạn có thể…</h2>
+  <div class="cols">
+    <ul>
+      <li>Kết nối SSH từ Linux và Windows, chép file bằng <code>scp</code></li>
+      <li>Cấu hình <code>sshd</code>: đổi cổng, giới hạn user, cấm root</li>
+      <li>Đăng nhập không cần mật khẩu bằng cặp khóa</li>
+    </ul>
+    <ul>
+      <li>Đồng bộ thư mục bằng <code>rsync</code> (cục bộ và qua SSH)</li>
+      <li>Viết script bash đơn giản có biến, ngày tháng, điều kiện</li>
+      <li>Lên lịch bằng <code>crontab</code> và <code>at</code></li>
+    </ul>
+  </div>
+  <div class="cols">
+    <div class="card small"><h3>server1 — “Server”</h3><code>192.168.229.29</code> · dữ liệu cần sao lưu: <code>/home</code></div>
+    <div class="card small"><h3>server2 — “Backup”</h3><code>192.168.229.30</code> · nơi lưu bản sao: <code>/backup</code></div>
+  </div>
+</section>
+
+<section class="slide" data-title="Hành trình">
+  <p class="kicker">Hành trình · server1 của Công ty ABC</p>
+  <h2>Buổi 13 nằm ở đâu?</h2>
+  <div class="journey">
+    <div class="past"><h3>Dùng lại từ trước</h3><ul class="small"><li>B12: IP tĩnh 2 máy, <code>systemctl</code>, <code>firewall-cmd</code>, khóa host SSH khi clone</li><li>B6: <code>tar</code> sao lưu /etc; B5: <code>&gt;&gt; log 2&gt;&amp;1</code></li><li>B9: quyền 700/600; B8: user được <code>AllowUsers</code></li></ul></div>
+    <div class="now"><h3>Hôm nay server1 có thêm</h3><ul class="small"><li>SSH an toàn: cổng 2222, đăng nhập bằng khóa</li><li>server2 kéo <code>/home</code> của server1 về mỗi 5 phút</li><li>Sao lưu <code>/etc</code> hằng đêm, giữ 7 ngày</li></ul></div>
+    <div class="next"><h3>Dùng tiếp ở</h3><ul class="small"><li>B14: khôi phục khi sự cố, thi thử</li><li>Sau khóa: Ansible, systemd timer, giám sát</li></ul></div>
+  </div>
+  <div class="objline">Mục tiêu LPI (bài 102): <span class="chip lpi">110.3 SSH</span><span class="chip lpi">107.2 cron, at</span><span class="chip lpi">105.2 Script</span> · rsync, SELinux <span class="out-tag">ngoài đề</span></div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>SSH — điều khiển máy từ xa qua kênh mã hóa</h2>
+  <div class="cols">
+    <div class="stack small">
+      <ul>
+        <li>Server: gói <code>openssh-server</code>, dịch vụ <code>sshd</code>, cổng <b>TCP 22</b></li>
+        <li>Client: lệnh <code>ssh</code> có sẵn trên Linux, macOS, <b>Windows 10/11</b> (PowerShell)</li>
+        <li>Client đồ họa: PuTTY, MobaXterm, Bitvise, SecureCRT; chép file: WinSCP</li>
+      </ul>
+      <pre class="term">
+# dnf install -y openssh-server   # Ubuntu: apt install openssh-server
+# systemctl enable --now sshd
+# ss -tlnp | grep sshd
+LISTEN 0 128 0.0.0.0:22 0.0.0.0:* users:(("sshd",pid=1021))</pre>
+    </div>
+    <pre class="term">
+PS C:\&gt; ssh root@192.168.229.29
+The authenticity of host '192.168.229.29' can't be established.
+ED25519 key fingerprint is SHA256:x3Jd...Qk.
+Are you sure you want to continue connecting (yes/no)? yes
+root@192.168.229.29's password:
+[root@server1 ~]# exit
+$ ssh -p 2222 nhanle@server1      # cổng khác
+$ ssh root@server1 'df -h /'      # chạy 1 lệnh rồi thoát</pre>
+  </div>
+  <div class="callout"><span class="lbl">Fingerprint</span>Lần đầu kết nối, client lưu “dấu vân tay” của server vào <code>~/.ssh/known_hosts</code>. Nếu sau này nó thay đổi bất thường → cảnh báo có thể bị giả mạo.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Cấu hình <code>sshd</code></h2>
+  <div class="cols">
+    <div class="stack">
+      <pre class="file" data-file="/etc/ssh/sshd_config.d/00-lab.conf">Port 2222
+PermitRootLogin prohibit-password
+PasswordAuthentication yes
+AllowUsers root nhanle@192.168.229.* test
+# ListenAddress 192.168.229.29:2222</pre>
+      <pre class="term">
+# sshd -t                       # kiểm tra cú pháp
+# sshd -T | grep -Ei 'port|permitroot'   # giá trị thực tế
+# systemctl restart sshd</pre>
+    </div>
+    <table class="small">
+      <tr><th>Tùy chọn</th><th>Ý nghĩa</th></tr>
+      <tr><td><code>Port</code></td><td>Cổng lắng nghe</td></tr>
+      <tr><td><code>ListenAddress ip:port</code></td><td>Chỉ nghe trên IP cụ thể</td></tr>
+      <tr><td><code>PermitRootLogin</code></td><td><code>yes</code> · <code>no</code> · <code>prohibit-password</code> (chỉ bằng khóa)</td></tr>
+      <tr><td><code>PasswordAuthentication</code></td><td><code>no</code> = bắt buộc dùng khóa</td></tr>
+      <tr><td><code>AllowUsers</code></td><td>Chỉ những user này (có thể kèm <code>@IP</code>)</td></tr>
+      <tr><td><code>AllowGroups</code></td><td>Chỉ thành viên các nhóm này</td></tr>
+    </table>
+  </div>
+  <div class="callout warn"><span class="lbl">Bẫy trên Rocky 9</span><code>sshd_config</code> nạp <code>sshd_config.d/*.conf</code> ở đầu và <b>giá trị đọc trước thắng</b>. Đặt cấu hình riêng ở file <code>00-…conf</code>, kiểm tra bằng <code>sshd -T</code>. Luôn giữ 1 phiên SSH đang mở khi restart – lỡ sai còn sửa được.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ <span class="out-tag">SELinux, firewalld: ngoài đề LPIC-1</span></p>
+  <h2>Đổi cổng SSH trên Rocky: nhớ SELinux và firewall</h2>
+  <div class="cols">
+    <pre class="term">
+# systemctl restart sshd
+Job for sshd.service failed...
+# journalctl -u sshd | tail -2
+error: Bind to port 2222 on 0.0.0.0 failed: Permission denied.
+# getenforce
+Enforcing
+# dnf install -y policycoreutils-python-utils
+# semanage port -a -t ssh_port_t -p tcp 2222
+# firewall-cmd --add-port=2222/tcp --permanent
+# firewall-cmd --reload
+# systemctl restart sshd
+# ss -tlnp | grep 2222
+LISTEN 0 128 0.0.0.0:2222 0.0.0.0:* users:(("sshd",pid=2311))</pre>
+    <div class="stack small">
+      <ol>
+        <li>Sửa <code>Port</code> trong cấu hình</li>
+        <li>Cho SELinux biết cổng mới là cổng SSH</li>
+        <li>Mở cổng trên firewall</li>
+        <li><code>sshd -t</code> → restart → kiểm tra <code>ss</code></li>
+        <li>Thử từ máy khác: <code>ssh -p 2222 …</code></li>
+      </ol>
+      <div class="callout legacy"><span class="lbl">Ghi chú gốc (CentOS 5/6)</span>Sửa <code>/etc/sysconfig/iptables</code> hoặc <code>/etc/init.d/iptables stop</code>. Ghi chú cũng đề xuất tắt SELinux – trong lab có thể <code>setenforce 0</code> để thử, nhưng thực tế nên cấu hình đúng như bên trái.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Chép file qua SSH: <code>scp</code> và <code>sftp</code></h2>
+  <div class="cols">
+    <pre class="term">
+## từ máy mình LÊN server
+$ scp wordpress.tar.gz root@192.168.229.29:/root/
+$ scp a.txt b.txt root@server1:/tmp/
+$ scp -r thu-muc/ root@server1:/root/
+$ scp -P 2222 file.txt root@server1:/root/   # P hoa
+## từ server VỀ máy mình
+$ scp root@server1:/var/log/messages ./
+## sftp: phiên tương tác
+$ sftp -P 2222 root@server1
+sftp&gt; ls
+sftp&gt; put bao-cao.pdf
+sftp&gt; get /etc/hosts
+sftp&gt; bye</pre>
+    <div class="stack small">
+      <div class="center"><span class="anno" style="font-size:24px">scp <span style="color:var(--blue)">NGUỒN</span> <span style="color:var(--amber)">ĐÍCH</span></span></div>
+      <p>Phía máy từ xa viết dạng <code>user@host:/đường/dẫn</code>.</p>
+      <div class="callout warn"><span class="lbl">Khác biệt dễ nhầm</span><code>ssh -p 2222</code> (p thường) nhưng <code>scp -P 2222</code> và <code>sftp -P 2222</code> (P hoa).</div>
+      <div class="callout tip"><span class="lbl">Windows</span>WinSCP (giao diện kéo-thả) hoặc lệnh <code>scp</code> ngay trong PowerShell.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Đăng nhập bằng cặp khóa (public key)</h2>
+  <div class="flow">
+    <div class="box alt">Client: <b>khóa riêng</b><small>~/.ssh/id_ed25519 · KHÔNG bao giờ đưa ai</small></div>
+    <div class="arrow">⇄</div>
+    <div class="box">Server: <b>khóa công khai</b><small>~/.ssh/authorized_keys của user đích</small></div>
+  </div>
+  <div class="cols">
+    <pre class="term tight">
+[root@server2 ~]# ssh-keygen -t ed25519
+Enter file in which to save the key (/root/.ssh/id_ed25519):
+Enter passphrase (empty for no passphrase):
+Your identification has been saved in /root/.ssh/id_ed25519
+Your public key has been saved in /root/.ssh/id_ed25519.pub
+[root@server2 ~]# ssh-copy-id -p 2222 root@192.168.229.29
+Number of key(s) added: 1
+[root@server2 ~]# ssh -p 2222 root@192.168.229.29
+[root@server1 ~]#                    ← không hỏi mật khẩu</pre>
+    <div class="stack small">
+      <h3>Cách thủ công (như ghi chú gốc)</h3>
+      <pre class="term tight">
+## trên server1, sau khi scp id_ed25519.pub lên
+# mkdir -p ~/.ssh
+# cat id_ed25519.pub &gt;&gt; ~/.ssh/authorized_keys
+# chmod 700 ~/.ssh
+# chmod 600 ~/.ssh/authorized_keys</pre>
+      <div class="callout legacy"><span class="lbl">Sửa ghi chú gốc</span>Ghi chú dùng <code>chmod -R 755 .ssh</code> và <code>&gt;</code> (ghi đè). Chuẩn là 700/600 và <code>&gt;&gt;</code> để không xóa khóa của máy khác.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Khóa từ Windows và file cấu hình client</h2>
+  <pre class="term">
+PS C:\&gt; ssh-keygen -t ed25519
+PS C:\&gt; type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh -p 2222 root@192.168.229.29 "mkdir -p ~/.ssh; cat &gt;&gt; ~/.ssh/authorized_keys"
+PS C:\&gt; ssh -p 2222 root@192.168.229.29</pre>
+  <p class="small muted">Windows không có <code>ssh-copy-id</code> → nối khóa công khai vào <code>authorized_keys</code> thủ công như trên.</p>
+  <div class="cols">
+    <pre class="file" data-file="~/.ssh/config (phía client)">Host server1
+    HostName 192.168.229.29
+    Port 2222
+    User root
+    IdentityFile ~/.ssh/id_ed25519</pre>
+    <div class="stack small">
+      <pre class="term">
+$ ssh server1          # gọn hơn nhiều
+$ scp file.txt server1:/tmp/</pre>
+      <div class="callout tip"><span class="lbl">Sau khi khóa chạy tốt</span>Đặt <code>PasswordAuthentication no</code> → kẻ tấn công dò mật khẩu hết đường.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ <span class="out-tag">ngoài đề LPIC-1 · công cụ sao lưu phổ biến nhất</span></p>
+  <h2><code>rsync</code> — đồng bộ thông minh, chỉ chép phần thay đổi</h2>
+  <div class="cols">
+    <pre class="term tight">
+# dnf install -y rsync              # cài trên CẢ HAI máy
+# mkdir /backup
+# rsync -av /home /backup           # → /backup/home/...
+# rsync -av /home/ /backup/home2/   # → nội dung /home vào home2
+# echo test &gt; /home/test.txt
+# rsync -av /home/ /backup/home2/
+sending incremental file list
+test.txt                            ← chỉ chép file mới
+# rm /home/test.txt
+# rsync -av /home/ /backup/home2/   # test.txt VẪN còn ở đích
+# rsync -av --delete /home/ /backup/home2/
+deleting test.txt
+# rsync -avn --delete /home/ /backup/home2/   # chạy thử</pre>
+    <table class="cheat small">
+      <tr><td>-a</td><td>archive = đệ quy + giữ link, quyền, thời gian, chủ, nhóm (-rlptgoD)</td></tr>
+      <tr><td>-v</td><td>Hiện chi tiết</td></tr>
+      <tr><td>-u</td><td>Bỏ qua file ở đích mới hơn</td></tr>
+      <tr><td>-z</td><td>Nén khi truyền qua mạng</td></tr>
+      <tr><td>--delete</td><td>Xóa ở đích những gì nguồn đã xóa</td></tr>
+      <tr><td>-n</td><td>Dry-run: chỉ in ra, không làm</td></tr>
+      <tr><td>--exclude='*.tmp'</td><td>Bỏ qua mẫu</td></tr>
+      <tr><td>-e "ssh -p 2222"</td><td>Đi qua SSH cổng khác</td></tr>
+    </table>
+  </div>
+  <div class="callout warn"><span class="lbl">Dấu / cuối nguồn rất quan trọng</span><code>/home</code> = chép <b>cả thư mục</b> home · <code>/home/</code> = chép <b>nội dung bên trong</b>. Với <code>--delete</code>, chọn sai có thể xóa nhầm. Luôn chạy <code>-n</code> trước.</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>rsync giữa hai máy qua SSH</h2>
+  <div class="cols">
+    <div class="stack">
+      <h3>Kéo về (pull) — chạy trên server2</h3>
+      <pre class="term">
+[root@server2 ~]# rsync -avz --delete -e "ssh -p 2222" \
+    root@192.168.229.29:/home/ /backup/server1-home/</pre>
+      <h3>Đẩy đi (push) — chạy trên server1</h3>
+      <pre class="term">
+[root@server1 ~]# rsync -avz --delete -e "ssh -p 22" \
+    /home/ root@192.168.229.30:/backup/server1-home/</pre>
+    </div>
+    <div class="stack small">
+      <div class="callout"><span class="lbl">Cú pháp giống scp</span>Phía máy xa: <code>user@host:/đường/dẫn/</code>.</div>
+      <div class="callout tip"><span class="lbl">Kết hợp khóa SSH</span>Đã <code>ssh-copy-id</code> → rsync không hỏi mật khẩu → <b>chạy tự động bằng cron được</b>. Đây là mục tiêu của lab hôm nay.</div>
+      <div class="callout info"><span class="lbl">Pull hay push?</span>Pull (máy backup tự kéo về) an toàn hơn: server bị xâm nhập cũng không xóa được bản sao lưu.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Script bash: tự động hóa chuỗi lệnh</h2>
+  <div class="cols">
+    <pre class="file" data-file="/root/backup-etc.sh">#!/bin/bash
+# Sao luu /etc moi ngay, giu lai 7 ngay gan nhat
+DEST=/backup/etc
+NGAY=$(date +%F)                 # 2026-10-19
+LOG=/var/log/backup-etc.log
+
+if [ ! -d "$DEST" ]; then
+    mkdir -p "$DEST"
+fi
+
+if tar -czf "$DEST/etc-$NGAY.tar.gz" /etc 2&gt;/dev/null; then
+    echo "$(date '+%F %T') OK  etc-$NGAY.tar.gz" &gt;&gt; "$LOG"
+else
+    echo "$(date '+%F %T') LOI khi nen /etc" &gt;&gt; "$LOG"
+    exit 1
+fi
+
+find "$DEST" -name "etc-*.tar.gz" -mtime +7 -delete</pre>
+    <div class="stack small">
+      <ul>
+        <li>Dòng 1 <b>shebang</b>: <code>#!/bin/bash</code> <span class="muted">(ghi chú gốc viết thiếu <code>/</code>: <code>#!bin/bash</code>)</span></li>
+        <li>Biến: <code>TEN=gia_tri</code> (không dấu cách), dùng <code>"$TEN"</code></li>
+        <li><code>$(lệnh)</code>: lấy kết quả lệnh</li>
+        <li><code>[ -d dir ]</code> thư mục tồn tại · <code>-f</code> file · <code>!</code> phủ định</li>
+        <li><code>$?</code> mã thoát lệnh trước: 0 = thành công</li>
+        <li><code>a &amp;&amp; b</code>: a thành công mới chạy b · <code>a || b</code>: a lỗi mới chạy b</li>
+      </ul>
+      <pre class="term">
+# chmod +x /root/backup-etc.sh
+# /root/backup-etc.sh ; echo $?
+0
+# tail -1 /var/log/backup-etc.log</pre>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2><code>crontab</code> — lên lịch chạy định kỳ</h2>
+  <div class="cols">
+    <div class="stack">
+      <pre class="tree">
+┌──────────── phút          (0-59)
+│ ┌────────── giờ           (0-23)
+│ │ ┌──────── ngày trong tháng (1-31)
+│ │ │ ┌────── tháng         (1-12)
+│ │ │ │ ┌──── thứ (0-7, 0 và 7 = CN; mon, tue…)
+│ │ │ │ │
+* * * * *  lệnh cần chạy</pre>
+      <table class="cheat small">
+        <tr><td>*</td><td>Mọi giá trị</td></tr>
+        <tr><td>11,16</td><td>Danh sách</td></tr>
+        <tr><td>09-18</td><td>Khoảng</td></tr>
+        <tr><td>*/10</td><td>Mỗi 10 đơn vị</td></tr>
+      </table>
+    </div>
+    <table class="small">
+      <tr><th>Biểu thức (từ ghi chú gốc)</th><th>Chạy lúc</th></tr>
+      <tr><td><code>30 08 10 06 *</code></td><td>8:30 ngày 10/6</td></tr>
+      <tr><td><code>00 11,16 * * *</code></td><td>11:00 và 16:00 mỗi ngày</td></tr>
+      <tr><td><code>00 09-18 * * *</code></td><td>Mỗi giờ đúng, từ 9h đến 18h</td></tr>
+      <tr><td><code>00 09-18 * * 1-5</code></td><td>…chỉ thứ Hai → thứ Sáu</td></tr>
+      <tr><td><code>*/10 * * * *</code></td><td>Mỗi 10 phút</td></tr>
+      <tr><td><code>* * * * *</code></td><td>Mỗi phút</td></tr>
+      <tr><td><code>30 1 * * *</code></td><td>1:30 sáng mỗi ngày</td></tr>
+      <tr><td><code>0 2 * * 0</code></td><td>2:00 sáng Chủ nhật</td></tr>
+    </table>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2>Crontab của user, của hệ thống, và lệnh <code>at</code></h2>
+  <div class="cols">
+    <div class="stack">
+      <pre class="term">
+$ crontab -e         # sửa crontab của mình
+$ crontab -l         # xem
+$ crontab -r         # xóa hết (cẩn thận!)
+# crontab -u athena -l
+# ls /var/spool/cron/
+athena  root</pre>
+      <pre class="file" data-file="/etc/crontab  hoặc  /etc/cron.d/backup   (có thêm cột USER)">SHELL=/bin/bash
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+MAILTO=root
+# phút giờ ngày tháng thứ  USER  lệnh
+*/5 * * * *            root  /root/rsync-home.sh</pre>
+    </div>
+    <div class="stack small">
+      <table>
+        <tr><td><code>/etc/cron.hourly/</code> · <code>daily/</code> · <code>weekly/</code> · <code>monthly/</code></td><td>Thả script vào là chạy theo chu kỳ</td></tr>
+        <tr><td><code>/etc/cron.allow</code> · <code>cron.deny</code></td><td>Ai được/không được dùng crontab</td></tr>
+        <tr><td><code>/var/log/cron</code></td><td>Log của cron (Ubuntu: <code>grep CRON /var/log/syslog</code>)</td></tr>
+      </table>
+      <div class="callout warn"><span class="lbl">Lỗi số 1 với cron</span>Cron chạy với <b>PATH tối giản</b> và không đọc <code>.bashrc</code>. Dùng đường dẫn đầy đủ, ghi output ra log: <code>… &gt;&gt; /var/log/x.log 2&gt;&amp;1</code></div>
+      <pre class="term">
+# echo "/usr/sbin/shutdown -r now" | at 23:00
+# atq ; atrm 1
+# systemctl list-timers      # systemd timer – cách lên lịch mới</pre>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab A · 40 phút</p>
+  <h2>Bảo vệ SSH trên server1</h2>
+  <ol class="steps small">
+    <li>Trên server1 tạo <code>/etc/ssh/sshd_config.d/00-lab.conf</code>: cổng <b>2222</b>, <code>AllowUsers root nhanle</code></li>
+    <li>Gán nhãn SELinux cho cổng 2222, mở firewall, <code>sshd -t</code>, restart (giữ 1 phiên cũ đang mở!)</li>
+    <li>Từ máy Windows: <code>ssh -p 2222 nhanle@192.168.229.29</code> → OK; user <code>test</code> → bị từ chối</li>
+    <li>Trên server2: <code>ssh-keygen</code> cho root, <code>ssh-copy-id</code> sang root@server1:2222, đăng nhập không mật khẩu</li>
+    <li>Từ Windows: tạo khóa, chép khóa công khai lên tài khoản <code>nhanle</code> của server1</li>
+    <li>Đặt <code>PermitRootLogin prohibit-password</code> → root chỉ vào được bằng khóa. Kiểm tra bằng <code>sshd -T</code></li>
+    <li>Dùng <code>scp</code> chép <code>/etc/hosts</code> từ server1 về Windows</li>
+  </ol>
+  <aside class="notes">Nhắc lại bẫy thứ tự Include: nếu cài đặt Rocky có tick "Allow root SSH login with password" thì có file 01-permitrootlogin.conf. Đặt file 00-lab.conf sẽ được đọc trước nên thắng.</aside>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab B · 50 phút · theo ghi chú “Lab RSYNC CRONTAB”</p>
+  <h2>Sao lưu /home của server1 về server2 mỗi 5 phút</h2>
+  <div class="cols w6">
+    <ol class="steps small">
+      <li>server2: đảm bảo root SSH vào server1 bằng khóa (Lab A bước 4)</li>
+      <li>server2: chạy tay lệnh rsync kéo <code>/home/</code> của server1 về <code>/backup/server1-home/</code> – <b>không được hỏi mật khẩu</b></li>
+      <li>Viết <code>/root/rsync-home.sh</code> chứa lệnh đó, ghi log có ngày giờ vào <code>/var/log/rsync-home.log</code></li>
+      <li><code>chmod +x</code>, chạy thử, xem log</li>
+      <li>Tạo <code>/etc/cron.d/rsync-home</code> chạy script mỗi 5 phút</li>
+      <li>server1: tạo file mới trong <code>/home/nhanle</code>, xóa một file cũ → chờ ≤ 5 phút → kiểm tra server2</li>
+      <li>Xem <code>/var/log/cron</code> trên server2 để thấy cron đã chạy</li>
+    </ol>
+    <details class="answer"><summary>Lời giải tham khảo</summary>
+    <pre class="file" data-file="server2: /root/rsync-home.sh">#!/bin/bash
+SRC=root@192.168.229.29:/home/
+DEST=/backup/server1-home/
+LOG=/var/log/rsync-home.log
+mkdir -p "$DEST"
+echo "== $(date '+%F %T') bat dau" &gt;&gt; "$LOG"
+/usr/bin/rsync -az --delete -e "ssh -p 2222" \
+    "$SRC" "$DEST" &gt;&gt; "$LOG" 2&gt;&amp;1
+echo "== $(date '+%F %T') ket thuc, ma $?" &gt;&gt; "$LOG"</pre>
+    <pre class="file" data-file="server2: /etc/cron.d/rsync-home">*/5 * * * * root /root/rsync-home.sh</pre></details>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab C · 20 phút</p>
+  <h2>Sao lưu cấu hình hằng đêm</h2>
+  <ol class="steps small">
+    <li>Trên server1, gõ lại script <code>/root/backup-etc.sh</code> (slide “Script bash”)</li>
+    <li>Chạy tay, kiểm tra có file <code>/backup/etc/etc-&lt;ngày&gt;.tar.gz</code> và dòng log</li>
+    <li>Lên lịch chạy <b>1:30 sáng mỗi ngày</b> bằng <code>crontab -e</code> của root</li>
+    <li>Để kiểm tra nhanh, tạm sửa lịch thành mỗi phút, đợi, xem log, rồi trả lại 1:30</li>
+    <li>(Mở rộng) Tạo 10 file giả <code>touch -d "-10 days" /backup/etc/etc-old-$i.tar.gz</code> và xác nhận script tự xóa file cũ hơn 7 ngày</li>
+  </ol>
+  <details class="answer"><summary>Dòng crontab</summary><pre class="term">
+# crontab -l
+30 1 * * * /root/backup-etc.sh</pre></details>
+  <div class="callout legacy"><span class="lbl">Từ ghi chú gốc</span><code>backup.sh</code>, <code>scriptbksource.sh</code>, <code>scriptbkdatabase.sh</code> là các script thực tế sao lưu website và MySQL – đọc sau khi đã nắm script trên. Lưu ý: không ghi mật khẩu thẳng trong script (dùng <code>~/.my.cnf</code> quyền 600).</div>
+</section>
+
+<section class="slide">
+  <p class="kicker ex">Bài tập</p>
+  <h2>Luyện tập</h2>
+  <ol class="ex small">
+    <li>Viết biểu thức cron: 23:45 thứ Sáu hằng tuần.
+      <details class="answer"><summary>Đáp án</summary><code>45 23 * * 5</code></details></li>
+    <li>Viết biểu thức cron: mỗi 15 phút trong giờ hành chính (8h–17h), thứ Hai–thứ Sáu.
+      <details class="answer"><summary>Đáp án</summary><code>*/15 8-17 * * 1-5</code></details></li>
+    <li>Chép thư mục <code>web/</code> lên <code>/var/www</code> của server1 (SSH cổng 2222).
+      <details class="answer"><summary>Đáp án</summary><code>scp -P 2222 -r web/ root@server1:/var/www/</code> hoặc <code>rsync -av -e "ssh -p 2222" web/ root@server1:/var/www/web/</code></details></li>
+    <li>Khác nhau giữa <code>rsync -a src dst</code> và <code>rsync -a src/ dst</code>?
+      <details class="answer"><summary>Đáp án</summary>Không có <code>/</code>: tạo <code>dst/src/…</code>. Có <code>/</code>: chép nội dung của src thẳng vào dst.</details></li>
+    <li>Script chạy tay thì được, chạy bằng cron thì không. Ba nguyên nhân hay gặp?
+      <details class="answer"><summary>Đáp án</summary>PATH tối giản (lệnh không tìm thấy) · thiếu quyền thực thi / sai shebang · phụ thuộc biến môi trường hoặc thư mục hiện tại; (với rsync/ssh: khóa của user khác).</details></li>
+    <li>Quyền đúng của <code>~/.ssh</code> và <code>authorized_keys</code>?
+      <details class="answer"><summary>Đáp án</summary>700 và 600.</details></li>
+  </ol>
+</section>
+
+<section class="slide" data-title="Trắc nghiệm nhanh">
+  <p class="kicker ex">Trắc nghiệm nhanh · 5 phút</p>
+  <h2>Kiểm tra trước khi về</h2>
+  <ol class="ex small">
+    <li>Khóa công khai của client được thêm vào file nào trên server?
+      <details class="answer"><summary>Đáp án</summary><code>~/.ssh/authorized_keys</code> của user đích (quyền 600, thư mục .ssh 700).</details></li>
+    <li><code>*/10 * * * *</code> chạy khi nào?
+      <details class="answer"><summary>Đáp án</summary>Mỗi 10 phút.</details></li>
+    <li>Sau một lệnh, <code>echo $?</code> in <code>0</code> nghĩa là gì?
+      <details class="answer"><summary>Đáp án</summary>Lệnh trước đó chạy thành công.</details></li>
+  </ol>
+  <div class="chips"><a class="btn" href="quiz.html?b=13">Làm đủ 15 câu của buổi 13 →</a></div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Tổng kết</p>
+  <h2>Bảng lệnh buổi 13 &amp; bài về nhà</h2>
+  <div class="cols">
+    <table class="cheat small">
+      <tr><td>ssh [-p] user@host</td><td>Kết nối</td></tr>
+      <tr><td>sshd -t · sshd -T</td><td>Kiểm tra cấu hình</td></tr>
+      <tr><td>semanage port -a -t ssh_port_t</td><td>SELinux cho cổng mới</td></tr>
+      <tr><td>scp [-P] [-r] · sftp</td><td>Chép file</td></tr>
+      <tr><td>ssh-keygen · ssh-copy-id</td><td>Đăng nhập bằng khóa</td></tr>
+      <tr><td>rsync -avz --delete [-n]</td><td>Đồng bộ</td></tr>
+      <tr><td>#!/bin/bash · $(…) · [ ]</td><td>Script</td></tr>
+      <tr><td>crontab -e -l · /etc/cron.d</td><td>Lên lịch</td></tr>
+      <tr><td>at · atq · atrm</td><td>Chạy 1 lần</td></tr>
+    </table>
+    <div class="stack">
+      <h3>Bài về nhà</h3>
+      <ol class="small">
+        <li>Thêm vào <code>rsync-home.sh</code>: nếu rsync lỗi thì ghi chữ “LOI” vào log</li>
+        <li>Ôn toàn bộ lệnh buổi 8–13 – buổi sau thi thử</li>
+      </ol>
+      <div class="callout info"><span class="lbl">Buổi 14</span>Quá trình khởi động, GRUB, khôi phục mật khẩu root – sau đó <b>ôn tập và thi thử</b> theo đề kết thúc môn.</div>
+    </div>
+  </div>
+</section>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

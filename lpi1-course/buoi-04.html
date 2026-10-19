@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LPI-1 · Buổi 04 — Trình soạn thảo vi/vim</title>
+<link rel="stylesheet" href="assets/deck.css">
+</head>
+<body>
+
+<section class="slide title">
+  <div class="num">04</div>
+  <h1>Soạn thảo văn bản: vi/vim, nano &amp; sed</h1>
+  <p class="sub">Kỹ năng bắt buộc của người quản trị: sửa file cấu hình ngay trên dòng lệnh, tìm &amp; thay thế hàng loạt.</p>
+  <div class="chips"><span class="chip a">LPI-1 · Buổi 4/14</span><span class="chip lpi">103.8</span><span class="chip lpi">103.7</span><span class="chip">~3 giờ</span><span class="chip">Lab: Sửa cấu hình an toàn</span></div>
+  <div class="prompt">:%s/athena/linux/g</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Mục tiêu buổi học</p>
+  <h2>Sau buổi này bạn có thể…</h2>
+  <div class="cols">
+    <ul>
+      <li>Giải thích các chế độ của vim và chuyển qua lại</li>
+      <li>Mở, sửa, lưu, thoát (kể cả thoát không lưu)</li>
+      <li>Di chuyển nhanh, xóa/copy/dán theo dòng</li>
+      <li>Tìm kiếm và thay thế trong toàn file</li>
+    </ul>
+    <ul>
+      <li>Dùng nano cho chỉnh sửa nhanh</li>
+      <li>Dùng <code>sed</code> để thay thế không cần mở file</li>
+      <li>Biết sao lưu file trước khi sửa cấu hình</li>
+    </ul>
+  </div>
+  <div class="callout info"><span class="lbl">Vì sao phải học vi?</span>vi có mặt trên <b>mọi</b> hệ Unix/Linux, kể cả máy cứu hộ tối giản. Kỳ thi LPI kiểm tra kỹ năng vi.</div>
+</section>
+
+<section class="slide" data-title="Hành trình">
+  <p class="kicker">Hành trình · server1 của Công ty ABC</p>
+  <h2>Buổi 04 nằm ở đâu?</h2>
+  <div class="journey">
+    <div class="past"><h3>Dùng lại từ trước</h3><ul class="small"><li>B3: <code>cp -a</code> – sao lưu file trước khi sửa</li><li>B3: <code>~/.bashrc</code>, alias, biến môi trường</li><li>B2: <code>/etc</code> là nơi chứa cấu hình</li></ul></div>
+    <div class="now"><h3>Hôm nay server1 có thêm</h3><ul class="small"><li>Bạn sửa được mọi file cấu hình bằng vim</li><li><code>~/.vimrc</code> và biến <code>EDITOR</code></li><li><code>sed</code> sửa hàng loạt mà không cần mở file</li></ul></div>
+    <div class="next"><h3>Dùng tiếp ở</h3><ul class="small"><li>B8: <code>visudo</code>, <code>/etc/login.defs</code></li><li>B11: <code>/etc/fstab</code></li><li>B12–13: <code>sshd_config</code>, <code>crontab -e</code></li></ul></div>
+  </div>
+  <div class="objline">Mục tiêu LPI: <span class="chip lpi">103.8 Chỉnh sửa file · 3đ</span><span class="chip lpi">103.7 sed (một phần)</span></div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Các trình soạn thảo trên Linux</h2>
+  <table>
+    <tr><th>Trình</th><th>Giao diện</th><th>Đặc điểm</th></tr>
+    <tr><td><b>vi</b></td><td>Dòng lệnh</td><td>Có sẵn ở mọi nơi; đen trắng</td></tr>
+    <tr><td><b>vim</b></td><td>Dòng lệnh</td><td>“vi improved”: tô màu cú pháp, undo nhiều lần. <code>dnf install vim-enhanced</code></td></tr>
+    <tr><td><b>nano</b></td><td>Dòng lệnh</td><td>Dễ nhất, phím tắt hiện ở cuối màn hình</td></tr>
+    <tr><td>emacs</td><td>Dòng lệnh / đồ họa</td><td>Mạnh, nhiều tính năng, đường cong học dốc</td></tr>
+    <tr><td>gedit, Kate</td><td>Đồ họa</td><td>Giống Notepad, cần desktop</td></tr>
+  </table>
+  <div class="callout tip"><span class="lbl">Học vim theo kiểu “đủ dùng”</span>Hôm nay chỉ cần ~20 phím. Tự luyện thêm bằng <code>vimtutor</code> (30 phút).</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Ba chế độ của vim</h2>
+  <div class="flow" style="margin-top:8px">
+    <div class="box alt">INSERT<small>gõ chữ như Notepad</small></div>
+    <div class="arrow">⇄</div>
+    <div class="box">NORMAL (Command)<small>mặc định khi mở file · di chuyển, xóa, copy</small></div>
+    <div class="arrow">⇄</div>
+    <div class="box blue">COMMAND-LINE<small>gõ <code>:</code> · lưu, thoát, thay thế</small></div>
+  </div>
+  <div class="cols">
+    <table class="small">
+      <tr><th>Từ NORMAL sang INSERT</th><th></th></tr>
+      <tr><td><kbd>i</kbd></td><td>Chèn tại con trỏ</td></tr>
+      <tr><td><kbd>a</kbd></td><td>Chèn sau con trỏ</td></tr>
+      <tr><td><kbd>o</kbd> / <kbd>O</kbd></td><td>Mở dòng mới bên dưới / bên trên</td></tr>
+      <tr><td><kbd>I</kbd> / <kbd>A</kbd></td><td>Chèn ở đầu / cuối dòng</td></tr>
+    </table>
+    <div class="stack">
+      <div class="callout warn"><span class="lbl">Lạc chế độ?</span>Bấm <kbd>Esc</kbd> 2 lần → chắc chắn về NORMAL.</div>
+      <div class="callout"><span class="lbl">Nhìn góc dưới trái</span>Hiện <code>-- INSERT --</code> nghĩa là đang ở chế độ gõ chữ.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Mở, lưu và thoát</h2>
+  <div class="cols">
+    <table class="cheat">
+      <tr><th>Lệnh</th><th>Ý nghĩa</th></tr>
+      <tr><td>vim file.txt</td><td>Mở (chưa có thì tạo khi lưu)</td></tr>
+      <tr><td>:w</td><td>Lưu</td></tr>
+      <tr><td>:q</td><td>Thoát (khi chưa sửa gì)</td></tr>
+      <tr><td>:wq · :x · ZZ</td><td>Lưu và thoát</td></tr>
+      <tr><td>:q!</td><td>Thoát, <b>bỏ</b> mọi thay đổi</td></tr>
+      <tr><td>:w!  · :wq!</td><td>Ép ghi (vd. file chỉ đọc mà bạn có quyền)</td></tr>
+      <tr><td>:w ten-moi.txt</td><td>Lưu thành file khác</td></tr>
+      <tr><td>vim +25 file</td><td>Mở và nhảy tới dòng 25</td></tr>
+    </table>
+    <div class="stack">
+      <pre class="term">
+$ vim hello.txt
+## bấm i, gõ: Xin chao Linux
+## bấm Esc, gõ :wq rồi Enter
+$ cat hello.txt
+Xin chao Linux</pre>
+      <div class="callout legacy"><span class="lbl">Ghi chú gốc</span><code>:wq!</code> có thể thay thế file của người khác nếu bạn có quyền <b>ghi trên thư mục</b> chứa nó – sẽ thấy rõ ở lab phân quyền (buổi 9).</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Di chuyển nhanh trong NORMAL mode</h2>
+  <div class="cols">
+    <table class="small">
+      <tr><td><kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd></td><td>Trái · xuống · lên · phải (hoặc phím mũi tên)</td></tr>
+      <tr><td><kbd>w</kbd> / <kbd>b</kbd></td><td>Tới đầu từ kế tiếp / trước</td></tr>
+      <tr><td><kbd>0</kbd> / <kbd>$</kbd></td><td>Đầu dòng / cuối dòng</td></tr>
+      <tr><td><kbd>gg</kbd> / <kbd>G</kbd></td><td>Đầu file / cuối file</td></tr>
+      <tr><td><kbd>100G</kbd> hoặc <code>:100</code></td><td>Tới dòng 100</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>f</kbd> / <kbd>b</kbd></td><td>Lật trang xuống / lên</td></tr>
+    </table>
+    <div class="stack">
+      <table class="cheat small">
+        <tr><td>:set number</td><td>Hiện số dòng (<code>:set nu</code>)</td></tr>
+        <tr><td>:set nonu</td><td>Tắt số dòng</td></tr>
+        <tr><td>:syntax on</td><td>Tô màu cú pháp</td></tr>
+      </table>
+      <div class="callout tip"><span class="lbl">Cấu hình lâu dài</span>Ghi vào <code>~/.vimrc</code>:
+<pre class="file" data-file="~/.vimrc">set number
+syntax on
+set hlsearch</pre></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Xóa, copy, dán, hoàn tác</h2>
+  <div class="cols">
+    <table class="small">
+      <tr><th>Phím</th><th>Tác dụng</th></tr>
+      <tr><td><kbd>x</kbd></td><td>Xóa 1 ký tự</td></tr>
+      <tr><td><kbd>dd</kbd> / <kbd>5dd</kbd></td><td>Xóa (cắt) 1 dòng / 5 dòng</td></tr>
+      <tr><td><kbd>dw</kbd> · <kbd>D</kbd></td><td>Xóa 1 từ · xóa tới cuối dòng</td></tr>
+      <tr><td><kbd>yy</kbd> / <kbd>3yy</kbd></td><td>Copy 1 dòng / 3 dòng</td></tr>
+      <tr><td><kbd>p</kbd> / <kbd>P</kbd></td><td>Dán dưới / trên dòng hiện tại</td></tr>
+      <tr><td><kbd>u</kbd> · <kbd>Ctrl</kbd>+<kbd>r</kbd></td><td>Hoàn tác · làm lại</td></tr>
+      <tr><td><kbd>.</kbd></td><td>Lặp lại thao tác vừa làm</td></tr>
+      <tr><td><kbd>r</kbd>X · <kbd>cw</kbd></td><td>Thay 1 ký tự bằng X · sửa 1 từ</td></tr>
+    </table>
+    <div class="stack">
+      <table class="cheat small">
+        <tr><th>Command-line</th><th></th></tr>
+        <tr><td>:50d</td><td>Xóa dòng 50</td></tr>
+        <tr><td>:1,10d</td><td>Xóa dòng 1 → 10</td></tr>
+        <tr><td>:5,8y</td><td>Copy dòng 5 → 8</td></tr>
+        <tr><td>:g/^#/d</td><td>Xóa mọi dòng bắt đầu bằng #</td></tr>
+      </table>
+      <div class="callout tip"><span class="lbl">Ngữ pháp vim</span>số lần + động tác + đối tượng: <code>3dw</code> = xóa 3 từ, <code>2yy</code> = copy 2 dòng.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Tìm kiếm và thay thế</h2>
+  <div class="cols">
+    <div class="stack">
+      <table class="small">
+        <tr><td><kbd>/</kbd>User</td><td>Tìm “User” <b>xuôi</b> xuống dưới</td></tr>
+        <tr><td><kbd>?</kbd>User</td><td>Tìm “User” <b>ngược</b> lên trên</td></tr>
+        <tr><td><kbd>n</kbd> / <kbd>N</kbd></td><td>Kết quả tiếp theo cùng chiều / ngược chiều</td></tr>
+        <tr><td><code>:set ic</code></td><td>Không phân biệt hoa thường</td></tr>
+      </table>
+      <table class="cheat small">
+        <tr><td>:s/cu/moi/</td><td>Thay lần đầu trên dòng hiện tại</td></tr>
+        <tr><td>:%s/cu/moi/g</td><td>Thay <b>tất cả</b> trong file</td></tr>
+        <tr><td>:%s/cu/moi/gc</td><td>Thay tất cả, hỏi xác nhận từng chỗ</td></tr>
+        <tr><td>:10,20s/cu/moi/g</td><td>Chỉ trong dòng 10 → 20</td></tr>
+      </table>
+    </div>
+    <div class="stack">
+      <h3>Ký tự đặc biệt cần “escape” bằng <code>\</code></h3>
+      <pre class="term">
+## Thay /home/athena bằng /root/abc
+:%s//home/athena//root/abc/g          # SAI
+:%s/\/home\/athena/\/root\/abc/g      # ĐÚNG
+:%s#/home/athena#/root/abc#g          # ĐÚNG, dễ đọc hơn
+## Thay C:\&gt; bằng D:\&gt;
+:%s/C:\\&gt;/D:\\&gt;/g</pre>
+      <div class="callout tip"><span class="lbl">Mẹo</span>Đổi dấu phân cách sang <code>#</code> hoặc <code>|</code> khi chuỗi có nhiều dấu <code>/</code>.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>nano — khi cần sửa nhanh</h2>
+  <div class="cols">
+    <table class="small">
+      <tr><th>Phím</th><th>Tác dụng</th></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>Lưu (Write Out)</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>X</kbd></td><td>Thoát</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>W</kbd></td><td>Tìm kiếm</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>\</kbd></td><td>Tìm &amp; thay thế</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd> / <kbd>U</kbd></td><td>Cắt dòng / dán</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>_</kbd></td><td>Nhảy tới dòng số</td></tr>
+      <tr><td><kbd>Alt</kbd>+<kbd>U</kbd></td><td>Hoàn tác</td></tr>
+    </table>
+    <div class="stack">
+      <pre class="term">
+# dnf install -y nano
+$ nano ghichu.txt</pre>
+      <div class="callout"><span class="lbl">Ký hiệu</span><code>^X</code> ở cuối màn hình nghĩa là <kbd>Ctrl</kbd>+<kbd>X</kbd>; <code>M-U</code> là <kbd>Alt</kbd>+<kbd>U</kbd>.</div>
+      <div class="callout info"><span class="lbl">Đổi trình soạn thảo mặc định</span><code>export EDITOR=nano</code> – ảnh hưởng tới <code>crontab -e</code>, <code>visudo</code>…</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2><code>sed</code> — tìm &amp; thay thế không cần mở file</h2>
+  <div class="cols">
+    <pre class="term">
+$ echo a12 &gt; a12
+$ sed 's/a12/a13/g' a12        # chỉ in ra màn hình
+a13
+$ cat a12
+a12
+$ sed -i 's/a12/a13/g' a12     # sửa thẳng vào file
+$ cat a12
+a13
+$ sed -i.bak 's/22/2222/' cfg  # sửa + giữ bản cfg.bak
+$ sed -n '5,10p' /etc/passwd   # in dòng 5 → 10
+$ sed '/^#/d' /etc/fstab       # bỏ dòng chú thích</pre>
+    <div class="stack small">
+      <table class="cheat">
+        <tr><td>s/cu/moi/</td><td>Thay lần đầu mỗi dòng</td></tr>
+        <tr><td>s/cu/moi/g</td><td>Thay mọi lần xuất hiện</td></tr>
+        <tr><td>-i</td><td>Ghi thẳng vào file (in-place)</td></tr>
+        <tr><td>-i.bak</td><td>Ghi thẳng + tạo bản sao lưu</td></tr>
+        <tr><td>-n 'Np'</td><td>Chỉ in dòng N</td></tr>
+        <tr><td>'Nd' · '/mẫu/d'</td><td>Xóa dòng N · dòng khớp mẫu</td></tr>
+      </table>
+      <div class="callout warn"><span class="lbl">Luôn thử trước</span>Chạy <b>không</b> có <code>-i</code> để xem kết quả, đúng rồi mới thêm <code>-i</code>.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết · LPI 103.8</p>
+  <h2>Emacs (nhận biết) và trình soạn thảo mặc định</h2>
+  <div class="cols">
+    <div class="stack small">
+      <h3>Emacs – chỉ cần nhận ra</h3>
+      <table>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>X</kbd> <kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Lưu</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>X</kbd> <kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>Thoát</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Tìm kiếm</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>G</kbd></td><td>Hủy lệnh đang gõ dở</td></tr>
+      </table>
+      <p class="muted">Emacs không có “chế độ” như vi – phím tắt luôn đi kèm <kbd>Ctrl</kbd>/<kbd>Alt</kbd>.</p>
+      <pre class="term">
+$ ls -l /usr/bin/vi /usr/bin/vim
+$ type vi</pre>
+      <p class="muted">Trên Rocky, <code>vi</code> là bản tối giản; <code>vim</code> (gói vim-enhanced) đầy đủ hơn.</p>
+    </div>
+    <div class="stack small">
+      <h3>Chọn trình soạn thảo mặc định</h3>
+      <pre class="term">
+$ echo 'export EDITOR=vim' &gt;&gt; ~/.bashrc
+$ source ~/.bashrc
+$ crontab -e                 # mở bằng $EDITOR
+$ sudo visudo                # cũng dùng $EDITOR
+## Debian/Ubuntu còn có:
+$ select-editor
+$ sudo update-alternatives --config editor</pre>
+      <div class="callout"><span class="lbl">EDITOR và VISUAL</span>Nhiều chương trình đọc <code>VISUAL</code> trước, không có mới dùng <code>EDITOR</code>. Đặt cả hai cho chắc.</div>
+      <div class="callout link"><span class="lbl">Liên kết</span>Biến môi trường và <code>~/.bashrc</code> đã học ở B2–B3.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab 1 · 35 phút</p>
+  <h2>Luyện tay vim</h2>
+  <div class="cols w6">
+    <ol class="steps small">
+      <li><code>mkdir ~/lab4 &amp;&amp; cd ~/lab4</code>, mở <code>vim danhsach.txt</code></li>
+      <li>Gõ 5 dòng: <code>linux athena</code>, <code>LINUX athena</code>, <code>123linux Athena</code>, <code>windows</code>, <code>macos</code></li>
+      <li>Lưu nhưng không thoát (<code>:w</code>). Bật số dòng</li>
+      <li>Copy dòng 1 và dán xuống cuối file 3 lần (<code>yy</code>, <code>G</code>, <code>3p</code>)</li>
+      <li>Xóa dòng “windows” bằng <code>dd</code>, rồi hoàn tác <code>u</code>, rồi xóa lại</li>
+      <li>Thay mọi “athena” bằng “lpi” (có xác nhận <code>gc</code>)</li>
+      <li>Xóa dòng 6 → 8 bằng một lệnh <code>:6,8d</code></li>
+      <li>Thoát không lưu <code>:q!</code>, mở lại kiểm tra: các thay đổi sau lần <code>:w</code> đã mất?</li>
+      <li>Chạy <code>vimtutor</code> phần 1 &amp; 2</li>
+    </ol>
+    <div class="callout tip"><span class="lbl">Cách luyện hiệu quả</span>Không dùng chuột, không dùng phím mũi tên trong 15 phút đầu – ép bản thân dùng <kbd>h</kbd><kbd>j</kbd><kbd>k</kbd><kbd>l</kbd>.</div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab 2 · 30 phút</p>
+  <h2>Sửa file cấu hình thật — an toàn</h2>
+  <ol class="steps small">
+    <li>Sao lưu: <code>cp /etc/ssh/sshd_config ~/lab4/sshd_config</code> (ta chỉ sửa <b>bản sao</b>)</li>
+    <li>Mở bằng vim, tìm dòng chứa <code>Port</code> bằng <code>/Port</code></li>
+    <li>Bỏ dấu <code>#</code> ở đầu dòng <code>#Port 22</code> và đổi thành <code>Port 2222</code>, lưu</li>
+    <li>Dùng <code>sed</code> (không mở file) đổi <code>#PermitRootLogin prohibit-password</code> thành <code>PermitRootLogin no</code></li>
+    <li>Kiểm tra bằng <code>grep -n -E '^(Port|PermitRootLogin)' ~/lab4/sshd_config</code></li>
+    <li>So sánh với bản gốc: <code>diff /etc/ssh/sshd_config ~/lab4/sshd_config</code></li>
+  </ol>
+  <details class="answer"><summary>Lời giải bước 4–6</summary>
+  <pre class="term">
+$ sed -i 's/^#PermitRootLogin prohibit-password/PermitRootLogin no/' ~/lab4/sshd_config
+$ grep -n -E '^(Port|PermitRootLogin)' ~/lab4/sshd_config
+21:Port 2222
+40:PermitRootLogin no
+$ diff /etc/ssh/sshd_config ~/lab4/sshd_config</pre></details>
+  <aside class="notes">Số dòng có thể khác tùy phiên bản OpenSSH. Nhấn mạnh quy tắc: luôn cp file.bak trước khi sửa cấu hình thật.</aside>
+</section>
+
+<section class="slide">
+  <p class="kicker ex">Bài tập</p>
+  <h2>Luyện tập</h2>
+  <ol class="ex small">
+    <li>Bạn lỡ sửa linh tinh một file cấu hình trong vim. Thoát thế nào để không lưu?
+      <details class="answer"><summary>Đáp án</summary><kbd>Esc</kbd> rồi <code>:q!</code></details></li>
+    <li>Nhảy tới dòng 120 và xóa 4 dòng từ đó.
+      <details class="answer"><summary>Đáp án</summary><code>120G</code> rồi <code>4dd</code> (hoặc <code>:120,123d</code>)</details></li>
+    <li>Thay mọi “http://” bằng “https://” trong file đang mở.
+      <details class="answer"><summary>Đáp án</summary><code>:%s#http://#https://#g</code></details></li>
+    <li>Không mở file, đổi mọi chữ “centos” thành “rocky” trong <code>ghichu.txt</code> và giữ bản sao lưu.
+      <details class="answer"><summary>Đáp án</summary><code>sed -i.bak 's/centos/rocky/g' ghichu.txt</code></details></li>
+    <li>In ra dòng 1 đến 3 của <code>/etc/passwd</code> bằng sed.
+      <details class="answer"><summary>Đáp án</summary><code>sed -n '1,3p' /etc/passwd</code></details></li>
+    <li>Trong vim, đang ở INSERT, bạn muốn copy dòng hiện tại. Cần bấm gì?
+      <details class="answer"><summary>Đáp án</summary><kbd>Esc</kbd> (về NORMAL) rồi <kbd>y</kbd><kbd>y</kbd>.</details></li>
+  </ol>
+</section>
+
+<section class="slide" data-title="Trắc nghiệm nhanh">
+  <p class="kicker ex">Trắc nghiệm nhanh · 5 phút</p>
+  <h2>Kiểm tra trước khi về</h2>
+  <ol class="ex small">
+    <li>Hai cách lưu và thoát vi?
+      <details class="answer"><summary>Đáp án</summary><code>:wq</code> và <code>ZZ</code> (thêm <code>:x</code>).</details></li>
+    <li>Tìm chữ <code>User</code> theo chiều ngược lên đầu file?
+      <details class="answer"><summary>Đáp án</summary><code>?User</code>, rồi <code>n</code> để sang kết quả kế tiếp.</details></li>
+    <li>Biến nào quy định trình soạn thảo cho <code>crontab -e</code>?
+      <details class="answer"><summary>Đáp án</summary><code>EDITOR</code> (hoặc <code>VISUAL</code>).</details></li>
+  </ol>
+  <div class="chips"><a class="btn" href="quiz.html?b=4">Làm đủ 11 câu của buổi 04 →</a><a class="btn ghost" href="quiz.html?obj=103.8">Luyện mục tiêu 103.8</a></div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Tổng kết</p>
+  <h2>Cheat sheet vim &amp; bài về nhà</h2>
+  <div class="cols">
+    <table class="cheat small">
+      <tr><td>i a o · Esc</td><td>Vào / ra chế độ gõ</td></tr>
+      <tr><td>:w :q :wq :q!</td><td>Lưu / thoát</td></tr>
+      <tr><td>gg G :N</td><td>Đầu / cuối / dòng N</td></tr>
+      <tr><td>dd yy p u</td><td>Cắt / copy / dán / hoàn tác</td></tr>
+      <tr><td>/từ n N</td><td>Tìm kiếm</td></tr>
+      <tr><td>:%s/a/b/g</td><td>Thay thế toàn file</td></tr>
+      <tr><td>:set nu</td><td>Hiện số dòng</td></tr>
+      <tr><td>sed -i 's/a/b/g' f</td><td>Thay thế từ dòng lệnh</td></tr>
+    </table>
+    <div class="stack">
+      <h3>Bài về nhà</h3>
+      <ol class="small">
+        <li>Hoàn thành <code>vimtutor</code> (tất cả các phần)</li>
+        <li>Tạo <code>~/.vimrc</code> với <code>set number</code> và <code>syntax on</code></li>
+        <li>Từ giờ, chỉ dùng vim để sửa file trong các lab</li>
+      </ol>
+      <div class="callout info"><span class="lbl">Buổi 05</span>Chuyển hướng <code>&gt;</code> <code>&gt;&gt;</code>, pipe <code>|</code>, <code>grep</code> và các lệnh lọc văn bản.</div>
+    </div>
+  </div>
+</section>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>

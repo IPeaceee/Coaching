@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LPI-1 · Buổi 09 — Phân quyền cơ bản</title>
+<link rel="stylesheet" href="assets/deck.css">
+</head>
+<body>
+
+<section class="slide title">
+  <div class="num">09</div>
+  <h1>Phân quyền file &amp; thư mục</h1>
+  <p class="sub"><code>rwx</code> · số bát phân · <code>chmod</code> · <code>chown</code> · <code>chgrp</code> · <code>umask</code> · quyền trên thư mục khác quyền trên file thế nào</p>
+  <div class="chips"><span class="chip a">LPI-1 · Buổi 9/14</span><span class="chip lpi">104.5</span><span class="chip">~3 giờ</span><span class="chip">Lab: Thí nghiệm 750 · 751 · 753 · 755 · 777</span></div>
+  <div class="prompt">$ chmod 750 /data &amp;&amp; ls -ld /data</div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Mục tiêu buổi học</p>
+  <h2>Sau buổi này bạn có thể…</h2>
+  <div class="cols">
+    <ul>
+      <li>Đọc chuỗi quyền <code>drwxr-x---</code> và đổi sang số <code>750</code></li>
+      <li>Giải thích r, w, x trên <b>thư mục</b> khác trên <b>file</b> ra sao</li>
+      <li>Đổi quyền bằng số và bằng chữ, đệ quy có chọn lọc</li>
+    </ul>
+    <ul>
+      <li>Đổi chủ sở hữu, nhóm sở hữu</li>
+      <li>Tính quyền mặc định từ <code>umask</code></li>
+      <li>Dự đoán chính xác user nào làm được gì</li>
+    </ul>
+  </div>
+  <div class="callout info"><span class="lbl">Chuẩn bị</span>Dùng các user từ buổi 8. Tạo thêm 2 user “người ngoài”: <code>useradd u1; useradd u2</code> và đặt mật khẩu.</div>
+</section>
+
+<section class="slide" data-title="Hành trình">
+  <p class="kicker">Hành trình · server1 của Công ty ABC</p>
+  <h2>Buổi 09 nằm ở đâu?</h2>
+  <div class="journey">
+    <div class="past"><h3>Dùng lại từ trước</h3><ul class="small"><li>B8: user u1, kt1… và nhóm ketoan, nhansu</li><li>B8: <code>UMASK</code> trong <code>/etc/login.defs</code></li><li>B3, B5: <code>find</code> + <code>xargs</code> / <code>-exec</code></li></ul></div>
+    <div class="now"><h3>Hôm nay server1 có thêm</h3><ul class="small"><li>Biết chính xác ai làm được gì trên mọi file</li><li><code>/srv/webapp</code> phân quyền đúng cho httpd (B7)</li><li>Hiểu vì sao 777 nguy hiểm</li></ul></div>
+    <div class="next"><h3>Dùng tiếp ở</h3><ul class="small"><li>B10: sticky bit vá lỗ hổng 753/777</li><li>B13: quyền 700/600 cho <code>~/.ssh</code></li><li>Đề thi câu 4: <code>chown -R</code>, <code>chmod 750</code></li></ul></div>
+  </div>
+  <div class="objline">Mục tiêu LPI: <span class="chip lpi">104.5 Quyền &amp; sở hữu · 3đ</span></div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Đọc chuỗi quyền 10 ký tự</h2>
+  <div class="center"><span class="perm"><b class="t">d</b><b class="u">rwx</b><b class="g">r-x</b><b class="o">r-x</b></span></div>
+  <div class="legend center" style="justify-content:center">
+    <span style="--c:var(--muted)">Loại: <code>-</code> file · <code>d</code> thư mục · <code>l</code> link</span>
+    <span style="--c:var(--amber)">u — user owner (chủ)</span>
+    <span style="--c:var(--accent)">g — group owner (nhóm)</span>
+    <span style="--c:var(--blue)">o — other (mọi người khác)</span>
+  </div>
+  <div class="cols">
+    <pre class="term">
+$ ls -l
+drwxr-xr-x. 2 test test123 4096 Dec  8 20:06 athena
+-rw-r--r--. 1 test test456   33 Dec  8 19:48 .bash_logout</pre>
+    <div class="callout"><span class="lbl">Kiểm tra theo thứ tự</span>Bạn là chủ? → dùng bộ <b>u</b>. Không phải chủ nhưng thuộc nhóm? → dùng bộ <b>g</b>. Không thì → bộ <b>o</b>. Chỉ áp dụng <b>1</b> bộ, không cộng dồn.</div>
+  </div>
+  <p class="small muted">root bỏ qua mọi kiểm tra quyền đọc/ghi.</p>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết · quan trọng nhất buổi</p>
+  <h2>r w x trên FILE khác trên THƯ MỤC</h2>
+  <table>
+    <tr><th>Quyền</th><th>Trên FILE</th><th>Trên THƯ MỤC</th></tr>
+    <tr><td><b>r</b> (read)</td><td>Đọc nội dung (<code>cat</code>, <code>less</code>)</td><td>Liệt kê tên file bên trong (<code>ls</code>)</td></tr>
+    <tr><td><b>w</b> (write)</td><td>Sửa nội dung file</td><td><b>Tạo, xóa, đổi tên</b> file bên trong (cần kèm <b>x</b>)</td></tr>
+    <tr><td><b>x</b> (execute)</td><td>Chạy file như chương trình/script</td><td><b>Đi vào</b> (<code>cd</code>) và truy cập file bên trong nếu biết tên</td></tr>
+  </table>
+  <div class="cols">
+    <div class="callout warn"><span class="lbl">Hệ quả bất ngờ #1</span>Xóa được file hay không phụ thuộc quyền <b>w trên thư mục</b>, không phải quyền trên file.</div>
+    <div class="callout warn"><span class="lbl">Hệ quả bất ngờ #2</span>Để tới <code>/a/b/c/file</code> bạn cần <b>x</b> trên <b>mọi</b> thư mục <code>/a</code>, <code>/a/b</code>, <code>/a/b/c</code>.</div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2>Quyền dạng số (bát phân)</h2>
+  <div class="cols">
+    <div class="stack">
+      <div class="center"><span class="anno" style="font-size:36px">r = <span style="color:var(--amber)">4</span> · w = <span style="color:var(--amber)">2</span> · x = <span style="color:var(--amber)">1</span> · – = 0</span></div>
+      <table class="grid small">
+        <tr><th>Số</th><th>Quyền</th><th>Số</th><th>Quyền</th></tr>
+        <tr><td>0</td><td><code>---</code></td><td>4</td><td><code>r--</code></td></tr>
+        <tr><td>1</td><td><code>--x</code></td><td>5</td><td><code>r-x</code></td></tr>
+        <tr><td>2</td><td><code>-w-</code></td><td>6</td><td><code>rw-</code></td></tr>
+        <tr><td>3</td><td><code>-wx</code></td><td>7</td><td><code>rwx</code></td></tr>
+      </table>
+    </div>
+    <table class="small">
+      <tr><th>Số</th><th>Chuỗi</th><th>Dùng cho</th></tr>
+      <tr><td><b>755</b></td><td><code>rwxr-xr-x</code></td><td>Thư mục, script chung (mặc định thư mục)</td></tr>
+      <tr><td><b>644</b></td><td><code>rw-r--r--</code></td><td>File thường (mặc định file)</td></tr>
+      <tr><td><b>750</b></td><td><code>rwxr-x---</code></td><td>Thư mục của nhóm</td></tr>
+      <tr><td><b>700</b></td><td><code>rwx------</code></td><td>Thư mục riêng tư (<code>~/.ssh</code>)</td></tr>
+      <tr><td><b>600</b></td><td><code>rw-------</code></td><td>Khóa riêng, mật khẩu</td></tr>
+      <tr><td><b>400</b></td><td><code>r--------</code></td><td>Chỉ chủ được đọc</td></tr>
+      <tr><td><b>777</b></td><td><code>rwxrwxrwx</code></td><td>⚠ Gần như không bao giờ nên dùng</td></tr>
+    </table>
+  </div>
+  <p class="small">Ví dụ <b>705</b>: chủ = 4+2+1 (rwx), nhóm = 0 (---), other = 4+1 (r-x).</p>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2><code>chmod</code> — đổi quyền bằng số hoặc bằng chữ</h2>
+  <div class="cols">
+    <pre class="term">
+$ touch 123.txt ; ls -l 123.txt
+-rw-r--r--. 1 nhanle nhanle 0 Oct 19 19:38 123.txt
+$ chmod 600 123.txt
+$ chmod u+x 123.txt          # thêm x cho chủ
+$ chmod go-w file.txt        # bỏ w của nhóm &amp; other
+$ chmod a+r file.txt         # a = all (u, g, o)
+$ chmod u=rwx,g=rx,o= dir    # gán chính xác
+$ chmod 700 -R athena/       # đệ quy cả bên trong
+$ ls -l 123.txt
+-rwx------. 1 nhanle nhanle 0 Oct 19 19:38 123.txt</pre>
+    <div class="stack small">
+      <div class="center"><span class="anno" style="font-size:28px">chmod <span style="color:var(--amber)">u</span><span style="color:var(--accent)">g</span><span style="color:var(--blue)">o</span>a <span style="color:var(--red)">+ - =</span> rwx  file</span></div>
+      <table>
+        <tr><td><code>+</code></td><td>Thêm quyền</td></tr>
+        <tr><td><code>-</code></td><td>Bớt quyền</td></tr>
+        <tr><td><code>=</code></td><td>Gán đúng bằng (xóa phần còn lại)</td></tr>
+      </table>
+      <div class="callout"><span class="lbl">Ai được chmod?</span>Chỉ <b>chủ sở hữu</b> của file và root.</div>
+      <div class="callout tip"><span class="lbl">Số hay chữ?</span>Số: đặt lại toàn bộ. Chữ: sửa 1 phần, giữ nguyên phần còn lại.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Ví dụ</p>
+  <h2><code>chown</code> và <code>chgrp</code> — đổi chủ sở hữu</h2>
+  <div class="cols">
+    <pre class="term">
+# mkdir /test-456
+# ls -ld /test-456
+drwxr-xr-x. 2 root root 6 Oct 31 19:20 /test-456
+# chown u1 /test-456                  # đổi chủ
+# chown u1:ketoan /test-456           # đổi chủ + nhóm
+# chown :ketoan file.txt              # chỉ đổi nhóm
+# chgrp ketoan file.txt               # = dòng trên
+# chown -R apache:apache /var/www/site1
+[u1@server1 ~]$ chmod 700 /test-456   # chủ được chmod
+[u1@server1 ~]$ chown u2 /test-456
+chown: changing ownership of '/test-456': Operation not permitted</pre>
+    <div class="stack small">
+      <table class="cheat">
+        <tr><td>chown user f</td><td>Đổi chủ</td></tr>
+        <tr><td>chown user:group f</td><td>Đổi chủ và nhóm</td></tr>
+        <tr><td>chown :group f</td><td>Đổi nhóm</td></tr>
+        <tr><td>chgrp group f</td><td>Đổi nhóm</td></tr>
+        <tr><td>-R</td><td>Đệ quy</td></tr>
+      </table>
+      <div class="callout warn"><span class="lbl">Chỉ root đổi chủ</span>User thường <b>không thể</b> “cho” file của mình sang user khác (ghi chú gốc bài 6.4).</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Lý thuyết</p>
+  <h2><code>umask</code> — quyền mặc định khi tạo mới</h2>
+  <div class="cols">
+    <div class="stack small">
+      <p>Quyền gốc: thư mục <b>777</b>, file <b>666</b> (file mới không bao giờ tự có x). umask là các bit bị <b>tắt đi</b>.</p>
+      <table class="grid">
+        <tr><th>umask</th><th>Thư mục mới</th><th>File mới</th></tr>
+        <tr><td><b>022</b> (mặc định)</td><td>755</td><td>644</td></tr>
+        <tr><td><b>027</b></td><td>750</td><td>640</td></tr>
+        <tr><td><b>077</b></td><td>700</td><td>600</td></tr>
+        <tr><td><b>002</b></td><td>775</td><td>664</td></tr>
+      </table>
+      <div class="callout tip"><span class="lbl">Cách tính đúng</span>Bỏ những bit có trong umask: file 666 (<code>rw-rw-rw-</code>) bỏ 027 (<code>----w-rwx</code>) → <code>rw-r-----</code> = 640.</div>
+    </div>
+    <div class="stack small">
+      <pre class="term">
+# umask
+0022
+# umask 027
+# mkdir /test1 ; touch /test11
+# ls -ld /test1 /test11
+drwxr-x---. 2 root root 6 /test1
+-rw-r-----. 1 root root 0 /test11
+# umask 080
+-bash: umask: 080: octal number out of range</pre>
+      <div class="callout legacy"><span class="lbl">Mẹo trong ghi chú gốc</span>“777 − quyền mong muốn = umask; với file, chữ số lẻ thì trừ thêm 1” – cho kết quả đúng, nhưng hiểu theo cách “tắt bit” sẽ không bao giờ sai.</div>
+      <p class="muted">Lưu vĩnh viễn: thêm <code>umask 027</code> vào <code>~/.bashrc</code>.</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab A · 40 phút</p>
+  <h2>Thí nghiệm: quyền OTHER trên thư mục</h2>
+  <div class="cols w6">
+    <div class="stack small">
+      <pre class="term">
+# mkdir /permission &amp;&amp; echo file-test &gt; /permission/file-test.txt
+# chmod 750 /permission      # lần lượt: 750 751 752 753 755 777
+# echo x &gt; /permission/xoa-thu.txt   # tạo lại mỗi lượt
+[u1@server1 ~]$ cd /permission
+[u1@server1 ~]$ ls /permission
+[u1@server1 ~]$ cat /permission/file-test.txt
+[u1@server1 ~]$ touch /permission/u1.txt
+[u1@server1 ~]$ rm -f /permission/xoa-thu.txt</pre>
+      <p>Root đổi quyền thư mục; <b>u1</b> (thuộc “other”) thử 5 thao tác. Điền ✓ / ✗ vào bảng.</p>
+    </div>
+    <table class="grid small">
+      <tr><th>Quyền</th><th>cd</th><th>ls</th><th>cat</th><th>tạo</th><th>xóa</th></tr>
+      <tr><td>750 <code>---</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>751 <code>--x</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>752 <code>-w-</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>753 <code>-wx</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>755 <code>r-x</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>777 <code>rwx</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+    </table>
+  </div>
+  <aside class="notes">Cho học viên dự đoán TRƯỚC khi thử, ghi dự đoán bằng bút chì. Sau đó thử thật. Phần chênh lệch giữa dự đoán và thực tế chính là kiến thức.</aside>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab A · Kết quả</p>
+  <h2>Đáp án thí nghiệm</h2>
+  <div class="cols w6">
+    <table class="grid small">
+      <tr><th>Quyền</th><th>cd</th><th>ls</th><th>cat</th><th>tạo</th><th>xóa</th></tr>
+      <tr><td>750 <code>---</code></td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td></tr>
+      <tr><td>751 <code>--x</code></td><td class="yes">✓</td><td class="no">✗</td><td class="yes">✓*</td><td class="no">✗</td><td class="no">✗</td></tr>
+      <tr><td>752 <code>-w-</code></td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td></tr>
+      <tr><td>753 <code>-wx</code></td><td class="yes">✓</td><td class="no">✗</td><td class="yes">✓*</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+      <tr><td>755 <code>r-x</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td></tr>
+      <tr><td>777 <code>rwx</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+    </table>
+    <div class="stack small">
+      <p>* phải <b>biết chính xác tên file</b>, và bản thân file cho other quyền r (644).</p>
+      <div class="callout warn"><span class="lbl">752: w mà thiếu x là vô dụng</span>Không vào được thư mục thì không tạo/xóa được gì.</div>
+      <div class="callout warn"><span class="lbl">753 &amp; 777: xóa được file của root!</span>Quyền w trên thư mục cho phép xóa/đổi tên <b>mọi</b> file bên trong. Cả <code>vim</code> + <code>:wq!</code> cũng “ghi đè” được file của root – file mới sẽ thuộc về u1 (ghi chú gốc bài 6.2). Cách chặn: sticky bit (buổi 10).</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab A · phần 2</p>
+  <h2>Thư mục lồng nhau: quyền của thư mục cha</h2>
+  <div class="cols">
+    <div class="stack small">
+      <pre class="term">
+# mkdir -p /test-1/test-2
+# echo test-1 &gt; /test-1/test-1.txt
+# echo test-2 &gt; /test-1/test-2/test-2.txt
+# chmod 750 /test-1 ; chmod 755 /test-1/test-2
+[u1@server1 ~]$ cd /test-1/test-2
+bash: cd: /test-1/test-2: Permission denied
+# chmod 753 /test-1
+[u1@server1 ~]$ cd /test-1/test-2 &amp;&amp; ls
+test-2.txt
+[u1@server1 test-2]$ touch test-222
+touch: cannot touch 'test-222': Permission denied
+[u1@server1 test-2]$ touch ../test-222</pre>
+    </div>
+    <div class="stack small">
+      <ol>
+        <li>Vì sao lần đầu u1 không vào được <code>test-2</code> dù test-2 là 755?</li>
+        <li>Sau khi đổi /test-1 thành 753, vì sao u1 <code>ls</code> được trong test-2 nhưng không <code>ls</code> được trong test-1?</li>
+        <li>Vì sao tạo file trong test-2 thất bại, còn trong test-1 lại thành công?</li>
+      </ol>
+      <details class="answer"><summary>Đáp án</summary>
+        <ol>
+          <li>Cần <b>x</b> trên mọi thư mục cha; /test-1 cho other <code>---</code>.</li>
+          <li>test-2 cho other <b>r</b>; test-1 cho other <code>-wx</code> (không có r).</li>
+          <li>test-2: other không có w. test-1: other có <code>-wx</code>.</li>
+        </ol></details>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker lab">Lab B · 30 phút</p>
+  <h2>Phân quyền mã nguồn web có chọn lọc</h2>
+  <div class="cols">
+    <div class="stack small">
+      <p>Thư mục <code>/srv/webapp</code> chứa thư mục con, file <code>.txt</code>, file <code>.php</code>. Yêu cầu:</p>
+      <ul>
+        <li>Mọi <b>thư mục</b>: 755</li>
+        <li>Mọi file <b>.txt</b>: 600</li>
+        <li>Mọi file <b>.php</b>: 640, nhóm sở hữu <code>apache</code></li>
+      </ul>
+      <pre class="term">
+# mkdir -p /srv/webapp/{inc,admin/tools}
+# touch /srv/webapp/{index,inc/db,admin/login}.php
+# touch /srv/webapp/{readme,admin/tools/note}.txt
+# chmod -R 777 /srv/webapp       # "lỡ tay"</pre>
+    </div>
+    <div class="stack small">
+      <div class="callout warn"><span class="lbl">Vì sao không dùng chmod -R?</span><code>chmod -R 755</code> sẽ gán cả x cho mọi file. Cần phân biệt file và thư mục → dùng <code>find</code>.</div>
+      <details class="answer"><summary>Lời giải</summary>
+      <pre class="term">
+# find /srv/webapp -type d -exec chmod 755 {} \;
+# find /srv/webapp -type f -name "*.txt" | xargs chmod 600
+# find /srv/webapp -type f -name "*.php" -exec chmod 640 {} +
+# find /srv/webapp -name "*.php" -exec chgrp apache {} +
+# ls -lR /srv/webapp
+## Cách gọn: X hoa = x chỉ cho thư mục
+# chmod -R u=rwX,go=rX /srv/webapp</pre></details>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kicker ex">Bài tập</p>
+  <h2>Luyện tập</h2>
+  <ol class="ex small">
+    <li>Đổi sang số: <code>rwxr-x--x</code>, <code>rw-rw-r--</code>, <code>r--------</code>.
+      <details class="answer"><summary>Đáp án</summary>751 · 664 · 400</details></li>
+    <li><code>-rw-r----- 1 kt1 ketoan bc.txt</code>. kt2 (nhóm ketoan) và ns1 (nhóm nhansu) làm được gì với file?
+      <details class="answer"><summary>Đáp án</summary>kt2: chỉ đọc. ns1: không gì cả (other = ---).</details></li>
+    <li>Vì sao <code>chmod 644 script.sh</code> rồi chạy <code>./script.sh</code> bị “Permission denied”?
+      <details class="answer"><summary>Đáp án</summary>Thiếu quyền x. Sửa: <code>chmod u+x script.sh</code> (hoặc chạy <code>bash script.sh</code>).</details></li>
+    <li>umask là 077. Thư mục và file mới có quyền gì?
+      <details class="answer"><summary>Đáp án</summary>Thư mục 700, file 600.</details></li>
+    <li>Cho nhóm <code>ketoan</code> sở hữu toàn bộ <code>/data/ketoan</code>, nhóm có rwx, other không có gì.
+      <details class="answer"><summary>Đáp án</summary><code>chgrp -R ketoan /data/ketoan; chmod -R g=rwX,o= /data/ketoan</code></details></li>
+    <li>File <code>/tmp/x</code> có quyền 444 của root. User thường xóa được không? Vì sao?
+      <details class="answer"><summary>Đáp án</summary>Không – <code>/tmp</code> có sticky bit (<code>drwxrwxrwt</code>): chỉ chủ file mới xóa được. Sẽ học ở buổi 10.</details></li>
+  </ol>
+</section>
+
+<section class="slide" data-title="Trắc nghiệm nhanh">
+  <p class="kicker ex">Trắc nghiệm nhanh · 5 phút</p>
+  <h2>Kiểm tra trước khi về</h2>
+  <ol class="ex small">
+    <li>Quyền <b>x</b> trên thư mục cho phép làm gì?
+      <details class="answer"><summary>Đáp án</summary>Đi vào (<code>cd</code>) và truy cập file bên trong nếu biết tên.</details></li>
+    <li>umask 027 – file mới tạo bằng <code>touch</code> có quyền gì?
+      <details class="answer"><summary>Đáp án</summary>640 (666 bỏ các bit 027).</details></li>
+    <li>User thường có <code>chown</code> file của mình cho người khác được không?
+      <details class="answer"><summary>Đáp án</summary>Không – chỉ root.</details></li>
+  </ol>
+  <div class="chips"><a class="btn" href="quiz.html?b=9">Làm đủ 10 câu của buổi 09 →</a><a class="btn ghost" href="quiz.html?obj=104.5">Luyện mục tiêu 104.5</a></div>
+</section>
+
+<section class="slide">
+  <p class="kicker">Tổng kết</p>
+  <h2>Bảng lệnh buổi 09 &amp; bài về nhà</h2>
+  <div class="cols">
+    <div class="stack">
+      <table class="cheat small">
+        <tr><td>ls -l · ls -ld · stat</td><td>Xem quyền</td></tr>
+        <tr><td>chmod 750 f</td><td>Đổi quyền bằng số</td></tr>
+        <tr><td>chmod u+x,go-w f</td><td>Đổi quyền bằng chữ</td></tr>
+        <tr><td>chmod -R · find … -exec</td><td>Đệ quy / có chọn lọc</td></tr>
+        <tr><td>chown user:group f</td><td>Đổi chủ (root)</td></tr>
+        <tr><td>chgrp group f</td><td>Đổi nhóm</td></tr>
+        <tr><td>umask [027]</td><td>Quyền mặc định</td></tr>
+      </table>
+      <div class="callout"><span class="lbl">Nhớ 1 câu</span>Thư mục: <b>r</b> = xem danh sách · <b>w</b> = tạo/xóa · <b>x</b> = đi vào.</div>
+    </div>
+    <div class="stack">
+      <h3>Bài về nhà</h3>
+      <ol class="small">
+        <li>Làm lại Lab A với quyền <b>nhóm</b> (u1 được đưa vào nhóm sở hữu): 705, 715, 735, 775</li>
+        <li>Giải thích bằng lời: vì sao 777 nguy hiểm?</li>
+      </ol>
+      <div class="callout info"><span class="lbl">Buổi 10</span>SUID, SGID, sticky bit và ACL (<code>setfacl</code>/<code>getfacl</code>) – giải quyết những bài toán chmod không làm được.</div>
+    </div>
+  </div>
+</section>
+
+<script src="assets/deck.js"></script>
+</body>
+</html>
