@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coaching Academy</title>
+<meta name="description" content="Coaching Academy — các khóa học thực hành về Linux và hạ tầng IT, học trực tiếp trên trình duyệt.">
+<meta name="theme-color" content="#0b7a75">
+<link rel="icon" href="assets/images/logo.svg" type="image/svg+xml">
+<script>try{var t=localStorage.getItem("coaching-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+<link rel="stylesheet" href="assets/css/academy.css">
+</head>
+<body>
+<a class="skip" href="#courses">Bỏ qua đến danh sách khóa học</a>
+
+<header class="site-header">
+  <div class="wrap bar">
+    <a class="brand" href="index.html" aria-label="Coaching Academy — trang chủ">
+      <img src="assets/images/logo.svg" alt="" width="32" height="32">
+      <span>Coaching <b>Academy</b></span>
+    </a>
+    <nav class="nav" aria-label="Điều hướng chính">
+      <a href="#top">Trang chủ</a>
+      <a href="#courses">Khóa học</a>
+      <a href="#about">Giới thiệu</a>
+    </nav>
+    <button class="icon-btn" type="button" data-toggle-theme aria-label="Đổi giao diện sáng / tối" title="Sáng / tối">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 2v14a7 7 0 0 1 0-14z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <p class="eyebrow">Học viện thực hành hạ tầng IT</p>
+        <h1>Học bằng cách <span class="hl">làm thật</span> trên hệ thống thật.</h1>
+        <p class="lead">Mỗi khóa học là một lộ trình hoàn chỉnh: slide trình chiếu ngay trên trình duyệt, lab có hướng dẫn từng bước, bài tập có đáp án và trắc nghiệm theo chuẩn chứng chỉ quốc tế.</p>
+        <div class="actions">
+          <a class="btn" href="#courses">Khám phá khóa học <span aria-hidden="true">→</span></a>
+          <a class="btn ghost" href="#about">Cách học tại đây</a>
+        </div>
+        <dl class="stats" id="stats" hidden></dl>
+      </div>
+      <div class="term" aria-hidden="true">
+        <div class="term-bar"><i></i><i></i><i></i><span>academy@coaching:~</span></div>
+        <pre id="termBody"><span class="p">$</span> ls coaching/
+<span class="o">…</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="courses" aria-labelledby="coursesTitle">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Khóa học</p>
+          <h2 id="coursesTitle">Chọn lộ trình của bạn</h2>
+        </div>
+        <p class="muted" id="courseCount"></p>
+      </div>
+      <div class="grid" id="courseGrid" aria-live="polite">
+        <div class="card skeleton" aria-hidden="true"></div>
+      </div>
+      <noscript>
+        <p class="notice">Trang này cần JavaScript để hiển thị danh sách khóa học. Bạn vẫn có thể vào thẳng khóa <a href="lpi1-course/index.html">Linux LPIC-1</a>.</p>
+      </noscript>
+    </div>
+  </section>
+
+  <section class="section alt" id="about" aria-labelledby="aboutTitle">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Giới thiệu</p>
+          <h2 id="aboutTitle">Cách một khóa học được xây dựng</h2>
+        </div>
+      </div>
+      <div class="features">
+        <article class="feature">
+          <span class="f-ico" aria-hidden="true">01</span>
+          <h3>Dự án xuyên suốt</h3>
+          <p>Mỗi buổi thêm một mảnh vào cùng một hệ thống và dùng lại kết quả của buổi trước, nên kiến thức nối thành một câu chuyện thay vì các bài rời rạc.</p>
+        </article>
+        <article class="feature">
+          <span class="f-ico" aria-hidden="true">02</span>
+          <h3>Lý thuyết ngắn, lab dài</h3>
+          <p>Phần lớn thời lượng dành cho lab có hướng dẫn và bài tập có đáp án ẩn. Khối lệnh có nút Copy để thực hành ngay trên máy ảo.</p>
+        </article>
+        <article class="feature">
+          <span class="f-ico" aria-hidden="true">03</span>
+          <h3>Bám đề chứng chỉ</h3>
+          <p>Nội dung đối chiếu với đề cương chứng chỉ, mỗi câu trắc nghiệm ghi rõ mục tiêu thi để biết cần ôn lại ở đâu. Có chế độ thi thử bấm giờ.</p>
+        </article>
+        <article class="feature">
+          <span class="f-ico" aria-hidden="true">04</span>
+          <h3>Không cần cài đặt</h3>
+          <p>Slide là HTML thuần, mở trên mọi trình duyệt, máy tính hay điện thoại. Phím tắt cho giảng viên, chế độ sáng/tối và xuất PDF.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap bar">
+    <span>© <span id="year">2026</span> Coaching Academy</span>
+    <a href="https://github.com/IPeaceee/Coaching" rel="noopener">Mã nguồn trên GitHub</a>
+  </div>
+</footer>
+
+<script src="assets/js/academy.js"></script>
+</body>
+</html>

@@ -234,6 +234,8 @@ a.session .lab { font-size: 13.5px; color: var(--amber); font-weight: 600; }
 .table-scroll { overflow-x: auto; }
 .keys { display: flex; flex-wrap: wrap; gap: 10px 22px; font-size: 15px; color: var(--muted); }
 .page-foot { margin-top: 40px; font-size: 14px; color: var(--muted); }
+.back-link { display: inline-block; margin-bottom: 12px; font: 600 15px var(--sans); color: var(--muted); text-decoration: none; }
+.back-link:hover { color: var(--accent); }
 .theme-btn { float: right; font: 600 14px var(--sans); color: var(--ink); background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
 
 /* ---------- course-wide links: LPI tags, out-of-scope label, journey slide ---------- */
@@ -260,7 +262,7 @@ a.btn.ghost, button.btn.ghost { color: var(--accent); background: transparent; }
 
 /* ---------- quiz page ---------- */
 .quiz-pick { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 16px; font-size: 15px; }
-.quiz-pick label { display: flex; flex-direction: column; gap: 4px; font-weight: 600; color: var(--muted); }
+.quiz-pick label { display: flex; flex-direction: column; gap: 4px; font-weight: 600; color: var(--muted); min-width: 0; max-width: 100%; }
 .quiz-pick select { font: 15px var(--sans); color: var(--ink); background: var(--slide); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; max-width: 100%; }
 .small-note { font-size: 14px; margin-top: 12px; }
 .quiz-timer { position: sticky; top: 8px; z-index: 3; margin: 16px 0 0 auto; width: max-content; font: 700 18px var(--mono); background: var(--slide); border: 1px solid var(--line); border-radius: 10px; padding: 6px 14px; box-shadow: var(--shadow); }

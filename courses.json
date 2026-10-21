@@ -1,0 +1,23 @@
+{
+  "courses": [
+    {
+      "id": "lpi1-course",
+      "title": "Linux LPIC-1",
+      "subtitle": "Quản trị hệ thống Linux từ con số 0",
+      "description": "Lộ trình 14 buổi từ dòng lệnh đầu tiên đến quản trị server: file, quyền, ổ đĩa, mạng, SSH, backup và khôi phục sự cố. Bám đề cương LPIC-1 v5.0 (101-500), thực hành trên Rocky Linux 9 và Ubuntu 24.04.",
+      "path": "lpi1-course/",
+      "status": "published",
+      "level": "Người mới bắt đầu",
+      "modules": 4,
+      "lessons": 14,
+      "duration": "~42 giờ",
+      "glyph": "$_",
+      "color": "#0b7a75",
+      "tags": ["Linux", "LPIC-1 v5.0", "Rocky Linux 9", "Ubuntu 24.04"],
+      "highlights": ["25+ bài lab", "~200 câu trắc nghiệm", "Thi thử LPI-101"],
+      "links": [
+        { "label": "Thi thử LPI-101", "path": "lpi1-course/quiz.html?mode=exam" }
+      ]
+    }
+  ]
+}

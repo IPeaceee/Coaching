@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Không tìm thấy trang · Coaching Academy</title>
+<meta name="robots" content="noindex">
+<script>
+  // This page is served for any missing URL, at any depth, so relative links need a fixed base.
+  // On a GitHub Pages project site the first path segment is the repository (e.g. /Coaching/).
+  // Assets are added from script so the browser never fetches them relative to the missing URL.
+  (function () {
+    var seg = location.pathname.split("/")[1];
+    var base = /\.github\.io$/i.test(location.hostname) && seg ? "/" + seg + "/" : "/";
+    var head = document.head;
+    function add(tag, attrs) { var el = document.createElement(tag); for (var k in attrs) el.setAttribute(k, attrs[k]); head.appendChild(el); }
+    add("base", { href: base });
+    add("link", { rel: "icon", href: base + "assets/images/logo.svg", type: "image/svg+xml" });
+    add("link", { rel: "stylesheet", href: base + "assets/css/academy.css" });
+    try { var t = localStorage.getItem("coaching-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  })();
+</script>
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap bar">
+    <a class="brand" href="index.html" aria-label="Coaching Academy — trang chủ">
+      <svg viewBox="0 0 64 64" width="32" height="32" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#0b7a75"/><path d="M17 22l11 10-11 10" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M33 44h15" stroke="#6fdc8c" stroke-width="6" stroke-linecap="round"/></svg>
+      <span>Coaching <b>Academy</b></span>
+    </a>
+    <nav class="nav" aria-label="Điều hướng chính">
+      <a href="index.html">Trang chủ</a>
+      <a href="index.html#courses">Khóa học</a>
+      <a href="index.html#about">Giới thiệu</a>
+    </nav>
+  </div>
+</header>
+<main class="wrap lost">
+  <div>
+    <p class="code">404</p>
+    <h1>Không tìm thấy trang này</h1>
+    <p class="muted">Đường dẫn có thể đã thay đổi hoặc gõ nhầm. Hãy quay về danh sách khóa học.</p>
+    <div class="actions">
+      <a class="btn" href="index.html#courses">Xem các khóa học</a>
+      <a class="btn ghost" href="index.html">Trang chủ</a>
+    </div>
+  </div>
+</main>
+</body>
+</html>

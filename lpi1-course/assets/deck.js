@@ -112,8 +112,19 @@
     var progress = document.createElement("div"); progress.id = "progress";
     var hud = document.createElement("div"); hud.id = "hud";
     var home = document.body.dataset.home || "index.html";
+    // Previous / next lesson, derived from the "buoi-NN.html" file name.
+    var LESSON_COUNT = 14;
+    var lesson = parseInt((location.pathname.match(/buoi-(\d+)\.html$/) || [])[1], 10);
+    function lessonLink(n, label) {
+      if (isNaN(lesson) || n < 1 || n > LESSON_COUNT) return "";
+      var nn = (n < 10 ? "0" : "") + n;
+      return '<a href="buoi-' + nn + '.html" title="' + label + " (buổi " + nn + ')">' +
+        (n < lesson ? "« " + nn : nn + " »") + "</a>";
+    }
     hud.innerHTML =
+      lessonLink(lesson - 1, "Buổi trước") +
       '<a href="' + home + '" title="Lộ trình khóa học">Lộ trình</a>' +
+      lessonLink(lesson + 1, "Buổi sau") +
       '<button type="button" data-act="toc" title="Danh sách slide (M)">☰</button>' +
       '<button type="button" data-act="prev" title="Slide trước (←)">‹</button>' +
       '<span class="count"></span>' +
